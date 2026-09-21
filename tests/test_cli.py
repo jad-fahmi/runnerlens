@@ -128,3 +128,34 @@ def test_impact_command_fetches_target_image_metadata(tmp_path: Path, capsys, mo
     assert exit_code == 0
     assert "version-changed      cmake" in captured.out
     assert "Metadata source: https://example.test/manifest" in captured.out
+
+
+def test_check_command_fails_for_new_runner_dependency(tmp_path: Path, capsys) -> None:
+    baseline_path = tmp_path / "baseline.json"
+    target_path = tmp_path / "target.json"
+    baseline_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0", "started_at": "2026-09-21T00:00:00+00:00", "ended_at": "2026-09-21T00:00:01+00:00", "exit_code": 0,
+                "runner": {"provider": "github-actions"}, "command": {"executable": "make", "arguments_recorded": False}, "dependencies": [], "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    target_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0", "started_at": "2026-09-21T00:00:00+00:00", "ended_at": "2026-09-21T00:00:01+00:00", "exit_code": 0,
+                "runner": {"provider": "github-actions"}, "command": {"executable": "make", "arguments_recorded": False},
+                "dependencies": [{"name": "cmake", "path": "/usr/bin/cmake", "origin": "runner-provided", "confidence": "probable"}], "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["check", str(baseline_path), str(target_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "New ambient dependencies:" in captured.out
+    assert "cmake" in captured.out
