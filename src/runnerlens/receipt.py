@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from runnerlens.classifier import classify_events
-from runnerlens.models import Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
+from runnerlens.models import SCHEMA_VERSION, Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.observer import Observation
 from runnerlens.resolver import enrich_dependencies
 from runnerlens.runner import detect_runner
@@ -34,10 +34,17 @@ def write_receipt(receipt: Receipt, path: Path) -> None:
 
 
 def load_receipt(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("receipt JSON must contain an object")
+    return data
 
 
 def receipt_from_dict(data: dict[str, Any]) -> Receipt:
+    if data.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported receipt schema version: {data.get('schema_version')!r}, expected {SCHEMA_VERSION!r}"
+        )
     return Receipt(
         runner=RunnerInfo(**data["runner"]),
         command=ObservedCommand(**data["command"]),

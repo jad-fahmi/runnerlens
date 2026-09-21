@@ -119,7 +119,7 @@ def show_command(args: argparse.Namespace) -> int:
 
     try:
         print(render_report(receipt_from_dict(data)), end="")
-    except (KeyError, TypeError) as error:
+    except (KeyError, TypeError, ValueError) as error:
         print(f"could not render receipt {receipt_path}: {error}", file=sys.stderr)
         return 2
 
