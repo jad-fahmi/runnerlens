@@ -9,12 +9,13 @@ from typing import Any
 from runnerlens.classifier import classify_events
 from runnerlens.models import Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.observer import Observation
+from runnerlens.resolver import enrich_dependencies
 from runnerlens.runner import detect_runner
 
 
 def build_receipt(observation: Observation, repository_root: Path) -> Receipt:
     runner = detect_runner()
-    dependencies = classify_events(observation.events, runner, repository_root)
+    dependencies = enrich_dependencies(classify_events(observation.events, runner, repository_root))
 
     return Receipt(
         runner=runner,

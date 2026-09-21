@@ -42,6 +42,8 @@ def render_report(receipt: Receipt) -> str:
                     "",
                     f"  {dependency.name}",
                     f"    path        {dependency.path or 'unresolved'}",
+                    f"    version     {dependency.version or 'unavailable'}",
+                    f"    package     {dependency.package or 'unavailable'}",
                     f"    origin      {dependency.origin}",
                     f"    confidence  {dependency.confidence}",
                 ]

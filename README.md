@@ -80,6 +80,7 @@ Observed runner dependencies
 3 runner-provided dependencies observed
 ```
 
+RunnerLens records executable versions and Debian package owners where reliable.
 Runner image impact comparison is planned. Instead of comparing the entire runner environment, RunnerLens will focus on the parts your build actually used.
 
 ---
