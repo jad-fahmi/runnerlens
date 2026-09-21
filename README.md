@@ -60,6 +60,12 @@ Compare a known-good receipt with a newer run:
 runnerlens compare baseline-receipt.json runnerlens-receipt.json
 ```
 
+Check observed tools against a specific GitHub Ubuntu runner-image release:
+
+```text
+runnerlens impact runnerlens-receipt.json --target-image-version 20260907.131.1
+```
+
 Example output:
 
 ```text
@@ -87,7 +93,7 @@ Observed runner dependencies
 ```
 
 RunnerLens records executable versions and Debian package owners where reliable.
-Receipt comparison narrows run-to-run changes to the tools your build actually used. Runner-image metadata comparison is planned as the next source of impact evidence.
+Receipt comparison narrows run-to-run changes to the tools your build actually used. `runnerlens impact` downloads the public software inventory for a specified GitHub Ubuntu image release and identifies observed tool versions that are no longer documented there.
 
 ---
 

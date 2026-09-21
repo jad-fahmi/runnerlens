@@ -7,10 +7,11 @@ import sys
 from pathlib import Path
 
 from runnerlens import __version__
-from runnerlens.impact import compare_receipts
+from runnerlens.github import fetch_ubuntu_manifest
+from runnerlens.impact import compare_receipts, correlate_receipt_with_image
 from runnerlens.observer import observe_command
 from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
-from runnerlens.report import render_impact_report, render_report
+from runnerlens.report import render_image_impact_report, render_impact_report, render_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         return show_command(args)
     if args.command_name == "compare":
         return compare_command(args)
+    if args.command_name == "impact":
+        return image_impact_command(args)
 
     parser.print_help()
     return 2
@@ -66,6 +69,12 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("baseline", help="path to the known-good receipt")
     compare.add_argument("target", help="path to the receipt being evaluated")
     compare.add_argument("--json", action="store_true", help="print JSON impact data")
+
+    impact = subcommands.add_parser("impact", help="correlate a receipt with a GitHub Ubuntu image release")
+    impact.add_argument("receipt", help="path to the observed receipt")
+    impact.add_argument("--target-image", help="target Ubuntu image, defaults to the receipt image")
+    impact.add_argument("--target-image-version", required=True, help="target GitHub runner image version")
+    impact.add_argument("--json", action="store_true", help="print JSON impact data")
 
     return parser
 
@@ -123,6 +132,27 @@ def compare_command(args: argparse.Namespace) -> int:
         print(to_json(impact.to_dict()), end="")
     else:
         print(render_impact_report(impact), end="")
+    return 0
+
+
+def image_impact_command(args: argparse.Namespace) -> int:
+    try:
+        receipt = receipt_from_dict(load_receipt(Path(args.receipt)))
+        if receipt.runner.provider != "github-actions":
+            raise ValueError("receipt was not produced on GitHub Actions")
+        image = args.target_image or receipt.runner.image
+        if not image:
+            raise ValueError("target image is required when the receipt has no runner image")
+        manifest = fetch_ubuntu_manifest(image, args.target_image_version)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"could not correlate receipt with runner image: {error}", file=sys.stderr)
+        return 2
+
+    impact = correlate_receipt_with_image(receipt, manifest)
+    if args.json:
+        print(to_json(impact.to_dict()), end="")
+    else:
+        print(render_image_impact_report(impact), end="")
     return 0
 
 
