@@ -31,13 +31,15 @@ Human / JSON / CI output
 The current scaffold implements the first narrow slice:
 
 - `runnerlens.cli`: command-line interface
-- `runnerlens.observer`: replaceable command observer
+- `runnerlens.observer`: Linux process-tree observer with a root-command fallback
 - `runnerlens.runner`: CI runner metadata detection
 - `runnerlens.classifier`: conservative origin classification
 - `runnerlens.receipt`: receipt construction and JSON serialization
 - `runnerlens.report`: human-readable receipt report
 
-The observer currently records the wrapped command as the root execution event. A Linux process-tree observer should replace that backend without changing the receipt model.
+On Linux with `strace` available, the observer records successful `execve` calls
+from the wrapped command's process tree. Elsewhere, it records only the wrapped
+root command and labels that lower-coverage observation method in the receipt.
 
 ## Evidence Rules
 
