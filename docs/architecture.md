@@ -34,12 +34,18 @@ The current scaffold implements the first narrow slice:
 - `runnerlens.observer`: Linux process-tree observer with a root-command fallback
 - `runnerlens.runner`: CI runner metadata detection
 - `runnerlens.classifier`: conservative origin classification
+- `runnerlens.resolver`: Linux version and Debian package-owner resolution
 - `runnerlens.receipt`: receipt construction and JSON serialization
 - `runnerlens.report`: human-readable receipt report
 
 On Linux with `strace` available, the observer records successful `execve` calls
 from the wrapped command's process tree. Elsewhere, it records only the wrapped
 root command and labels that lower-coverage observation method in the receipt.
+
+After classification, RunnerLens asks an observed absolute executable for its
+version with `--version`, and queries `dpkg-query` for the owning Debian package.
+Both operations are bounded by a short timeout. A value is omitted when either
+source does not return reliable evidence.
 
 ## Evidence Rules
 
