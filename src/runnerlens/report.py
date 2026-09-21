@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from runnerlens.models import Receipt
+from runnerlens.impact import ReceiptImpact
 
 
 def render_report(receipt: Receipt) -> str:
@@ -57,3 +58,34 @@ def render_report(receipt: Receipt) -> str:
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def render_impact_report(impact: ReceiptImpact) -> str:
+    lines = [
+        "RunnerLens receipt impact",
+        "========================",
+        "",
+        f"Baseline runner: {_runner_label(impact.baseline_runner)}",
+        f"Target runner:   {_runner_label(impact.target_runner)}",
+        "",
+    ]
+    counts = {status: 0 for status in ("added", "removed", "changed", "unchanged")}
+    for dependency in impact.dependencies:
+        counts[dependency.status] += 1
+        before = dependency.baseline.version if dependency.baseline else None
+        after = dependency.target.version if dependency.target else None
+        versions = f" ({before or 'unavailable'} -> {after or 'unavailable'})"
+        lines.append(f"{dependency.status:9} {dependency.name}{versions}")
+
+    lines.extend(
+        [
+            "",
+            "Summary: " + ", ".join(f"{counts[status]} {status}" for status in counts),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _runner_label(runner) -> str:
+    values = [runner.provider, runner.image, runner.image_version]
+    return " / ".join(value for value in values if value) or "unknown"

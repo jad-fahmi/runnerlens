@@ -54,6 +54,12 @@ Inspect a saved receipt later with:
 runnerlens show runnerlens-receipt.json
 ```
 
+Compare a known-good receipt with a newer run:
+
+```text
+runnerlens compare baseline-receipt.json runnerlens-receipt.json
+```
+
 Example output:
 
 ```text
@@ -81,7 +87,7 @@ Observed runner dependencies
 ```
 
 RunnerLens records executable versions and Debian package owners where reliable.
-Runner image impact comparison is planned. Instead of comparing the entire runner environment, RunnerLens will focus on the parts your build actually used.
+Receipt comparison narrows run-to-run changes to the tools your build actually used. Runner-image metadata comparison is planned as the next source of impact evidence.
 
 ---
 
