@@ -36,3 +36,11 @@ jobs:
         run: python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert any(event['observation'] == 'strace-execve' for event in receipt['events'])"
       - name: Verify wrapped command completed
         run: test "$(cat runnerlens-smoke.txt)" = "ok"
+      - name: Run a failing command through RunnerLens
+        uses: ./
+        continue-on-error: true
+        with:
+          command: python -c "raise SystemExit(7)"
+          output: runnerlens-failed-command-receipt.json
+      - name: Verify failed-command receipt
+        run: python -c "import json; assert json.load(open('runnerlens-failed-command-receipt.json'))['exit_code'] == 7"
