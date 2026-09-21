@@ -46,6 +46,19 @@ jobs:
           baseline: runnerlens-accepted-baseline.json
       - name: Verify baseline-check command completed
         run: test "$(cat runnerlens-baseline-smoke.txt)" = "ok"
+      - name: Create a workflow-provisioned tool
+        run: |
+          mkdir -p /tmp/runnerlens-workflow-tools
+          printf '#!/usr/bin/env bash\nexit 0\n' > /tmp/runnerlens-workflow-tools/provisioned-tool
+          chmod +x /tmp/runnerlens-workflow-tools/provisioned-tool
+      - name: Observe a workflow-provisioned tool
+        uses: ./
+        with:
+          command: /tmp/runnerlens-workflow-tools/provisioned-tool
+          output: runnerlens-workflow-provisioned-receipt.json
+          workflow-provisioned-paths: /tmp/runnerlens-workflow-tools
+      - name: Verify workflow-provisioned classification
+        run: python -c "import json; receipt = json.load(open('runnerlens-workflow-provisioned-receipt.json')); assert any(item['origin'] == 'workflow-provisioned' for item in receipt['dependencies'])"
       - name: Run a failing command through RunnerLens
         uses: ./
         continue-on-error: true

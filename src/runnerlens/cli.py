@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -53,6 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="path to write the JSON receipt",
     )
     run.add_argument(
+        "--workflow-provisioned-path",
+        action="append",
+        default=[],
+        help="path installed or configured by an earlier workflow step, repeatable",
+    )
+    run.add_argument(
         "--json",
         action="store_true",
         help="print the JSON receipt instead of the human report",
@@ -95,7 +102,10 @@ def run_command(args: argparse.Namespace) -> int:
         return 2
 
     observation = observe_command(wrapped_command, cwd=Path.cwd())
-    receipt = build_receipt(observation, repository_root=Path.cwd())
+    receipt_env = dict(os.environ)
+    if args.workflow_provisioned_path:
+        receipt_env["RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"] = os.pathsep.join(args.workflow_provisioned_path)
+    receipt = build_receipt(observation, repository_root=Path.cwd(), env=receipt_env)
     write_receipt(receipt, Path(args.output))
 
     if args.json:

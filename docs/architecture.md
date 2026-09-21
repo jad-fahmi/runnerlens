@@ -53,6 +53,14 @@ Resolution is limited to dependencies already classified as `runner-provided`
 or `tool-cache`. RunnerLens does not invoke repository-provided executables a
 second time merely to obtain metadata.
 
+## Workflow Provisioning Evidence
+
+`runnerlens run --workflow-provisioned-path PATH` records an explicit workflow
+declaration for a path installed or configured before the observed command. Any
+executables resolved below that path receive the `workflow-provisioned` origin
+with confirmed confidence. This is opt-in evidence, not an inference from a
+system path.
+
 `runnerlens compare` compares two receipts and reports observed dependencies as
 added, removed, changed, or unchanged. It does not claim that a changed tool was
 caused by the runner image: it preserves both receipts as the underlying evidence.

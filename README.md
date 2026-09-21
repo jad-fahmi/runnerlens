@@ -48,6 +48,13 @@ RunnerLens wraps an existing build or test command and writes a receipt to `runn
 runnerlens run -- make
 ```
 
+If a preceding workflow step provisioned a tool outside the checkout, declare
+that path as evidence so RunnerLens does not mistake it for a base-image tool:
+
+```text
+runnerlens run --workflow-provisioned-path /opt/my-tools -- make
+```
+
 Inspect a saved receipt later with:
 
 ```text
@@ -88,6 +95,7 @@ Use the composite action after checkout and any intentional provisioning steps:
   with:
     command: python -m pytest
     baseline: .runnerlens/accepted-receipt.json
+    workflow-provisioned-paths: /opt/my-tools:/usr/local/custom-sdk
 ```
 
 The action writes `runnerlens-receipt.json` and publishes the human-readable
@@ -96,6 +104,8 @@ with `actions/upload-artifact` or commit it as a reviewed baseline.
 When `baseline` is set, a successful build fails if it introduces a new
 runner-provided or tool-cache dependency. A failing wrapped build retains its
 own exit status regardless of the baseline result.
+`workflow-provisioned-paths` accepts colon-separated Linux paths from earlier
+workflow steps and records matching executables as `workflow-provisioned`.
 
 Example output:
 
