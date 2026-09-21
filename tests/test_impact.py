@@ -1,5 +1,5 @@
 from runnerlens.github import GitHubImageManifest
-from runnerlens.impact import compare_receipts, correlate_receipt_with_image, newly_observed_ambient_dependencies
+from runnerlens.impact import compare_receipts, compare_runner_images, correlate_receipt_with_image, newly_observed_ambient_dependencies
 from runnerlens.models import Dependency, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.report import render_impact_report
 
@@ -81,3 +81,30 @@ def test_new_ambient_dependencies_excludes_unknown_and_repository_tools() -> Non
     changes = newly_observed_ambient_dependencies(compare_receipts(baseline, target))
 
     assert [change.name for change in changes] == ["cmake", "python"]
+
+
+def test_compare_runner_images_filters_changes_to_observed_dependencies() -> None:
+    receipt = _receipt(
+        [
+            Dependency("cmake", "/usr/bin/cmake", "runner-provided", "probable"),
+            Dependency("ninja", "/usr/bin/ninja", "runner-provided", "probable"),
+            Dependency("unknown-tool", "/usr/bin/unknown-tool", "unknown", "unknown"),
+        ],
+        "20260901.1",
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260901.1", source_url="https://example.test/baseline",
+        tools={"cmake": ("3.28.1",), "ninja": ("1.11.1",)},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260922.1", source_url="https://example.test/target",
+        tools={"cmake": ("3.30.2",)},
+    )
+
+    impact = compare_runner_images(receipt, baseline, target)
+
+    assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
+        ("cmake", "changed"),
+        ("ninja", "removed"),
+        ("unknown-tool", "metadata-unavailable"),
+    ]

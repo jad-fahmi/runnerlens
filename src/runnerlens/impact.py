@@ -72,6 +72,42 @@ class ImageImpact:
         }
 
 
+@dataclass(frozen=True)
+class RunnerImageDependencyImpact:
+    dependency: Dependency
+    status: str
+    baseline_versions: tuple[str, ...] | None
+    target_versions: tuple[str, ...] | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "dependency": self.dependency.to_dict(),
+            "status": self.status,
+            "baseline_versions": list(self.baseline_versions) if self.baseline_versions else None,
+            "target_versions": list(self.target_versions) if self.target_versions else None,
+        }
+
+
+@dataclass(frozen=True)
+class RunnerImageImpact:
+    observed_runner: RunnerInfo
+    baseline_release: str
+    baseline_source_url: str
+    target_release: str
+    target_source_url: str
+    dependencies: list[RunnerImageDependencyImpact]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "observed_runner": self.observed_runner.to_dict(),
+            "baseline_release": self.baseline_release,
+            "baseline_source_url": self.baseline_source_url,
+            "target_release": self.target_release,
+            "target_source_url": self.target_source_url,
+            "dependencies": [dependency.to_dict() for dependency in self.dependencies],
+        }
+
+
 def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
     """Compare observed tools by name, preserving both sides as evidence."""
     baseline_dependencies = _by_name(baseline.dependencies)
@@ -133,6 +169,42 @@ def correlate_receipt_with_image(receipt: Receipt, manifest: GitHubImageManifest
         observed_runner=receipt.runner,
         target_release=manifest.release,
         source_url=manifest.source_url,
+        dependencies=dependencies,
+    )
+
+
+def compare_runner_images(
+    receipt: Receipt, baseline: GitHubImageManifest, target: GitHubImageManifest
+) -> RunnerImageImpact:
+    """Filter documented runner-image changes to tools observed in a receipt."""
+    dependencies: list[RunnerImageDependencyImpact] = []
+    for dependency in receipt.dependencies:
+        baseline_versions = manifest_versions(baseline, dependency.name)
+        target_versions = manifest_versions(target, dependency.name)
+        if baseline_versions is None and target_versions is None:
+            status = "metadata-unavailable"
+        elif baseline_versions is None:
+            status = "added"
+        elif target_versions is None:
+            status = "removed"
+        elif baseline_versions == target_versions:
+            status = "unchanged"
+        else:
+            status = "changed"
+        dependencies.append(
+            RunnerImageDependencyImpact(
+                dependency=dependency,
+                status=status,
+                baseline_versions=baseline_versions,
+                target_versions=target_versions,
+            )
+        )
+    return RunnerImageImpact(
+        observed_runner=receipt.runner,
+        baseline_release=baseline.release,
+        baseline_source_url=baseline.source_url,
+        target_release=target.release,
+        target_source_url=target.source_url,
         dependencies=dependencies,
     )
 

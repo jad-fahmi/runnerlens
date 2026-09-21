@@ -8,10 +8,10 @@ from pathlib import Path
 
 from runnerlens import __version__
 from runnerlens.github import fetch_ubuntu_manifest
-from runnerlens.impact import compare_receipts, correlate_receipt_with_image, newly_observed_ambient_dependencies
+from runnerlens.impact import compare_receipts, compare_runner_images, correlate_receipt_with_image, newly_observed_ambient_dependencies
 from runnerlens.observer import observe_command
 from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
-from runnerlens.report import render_baseline_report, render_image_impact_report, render_impact_report, render_report
+from runnerlens.report import render_baseline_report, render_image_impact_report, render_impact_report, render_report, render_runner_image_impact_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -74,6 +74,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     impact = subcommands.add_parser("impact", help="correlate a receipt with a GitHub Ubuntu image release")
     impact.add_argument("receipt", help="path to the observed receipt")
+    impact.add_argument("--baseline-image", help="baseline Ubuntu image, defaults to the receipt image")
+    impact.add_argument("--baseline-image-version", help="baseline GitHub runner image version")
     impact.add_argument("--target-image", help="target Ubuntu image, defaults to the receipt image")
     impact.add_argument("--target-image-version", required=True, help="target GitHub runner image version")
     impact.add_argument("--json", action="store_true", help="print JSON impact data")
@@ -150,16 +152,25 @@ def image_impact_command(args: argparse.Namespace) -> int:
         image = args.target_image or receipt.runner.image
         if not image:
             raise ValueError("target image is required when the receipt has no runner image")
-        manifest = fetch_ubuntu_manifest(image, args.target_image_version)
+        target_manifest = fetch_ubuntu_manifest(image, args.target_image_version)
+        baseline_manifest = None
+        if args.baseline_image_version:
+            baseline_manifest = fetch_ubuntu_manifest(args.baseline_image or image, args.baseline_image_version)
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"could not correlate receipt with runner image: {error}", file=sys.stderr)
         return 2
 
-    impact = correlate_receipt_with_image(receipt, manifest)
+    if baseline_manifest:
+        impact = compare_runner_images(receipt, baseline_manifest, target_manifest)
+    else:
+        impact = correlate_receipt_with_image(receipt, target_manifest)
     if args.json:
         print(to_json(impact.to_dict()), end="")
     else:
-        print(render_image_impact_report(impact), end="")
+        if baseline_manifest:
+            print(render_runner_image_impact_report(impact), end="")
+        else:
+            print(render_image_impact_report(impact), end="")
     return 0
 
 

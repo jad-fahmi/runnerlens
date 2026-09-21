@@ -72,6 +72,12 @@ Check observed tools against a specific GitHub Ubuntu runner-image release:
 runnerlens impact runnerlens-receipt.json --target-image-version 20260907.131.1
 ```
 
+Compare two runner-image releases, narrowed to the tools in your receipt:
+
+```text
+runnerlens impact runnerlens-receipt.json --baseline-image-version 20260831.293.1 --target-image-version 20260920.314.1
+```
+
 ### GitHub Actions
 
 Use the composite action after checkout and any intentional provisioning steps:
@@ -118,7 +124,7 @@ Observed runner dependencies
 ```
 
 RunnerLens records executable versions and Debian package owners where reliable.
-Receipt comparison narrows run-to-run changes to the tools your build actually used. `runnerlens impact` downloads the public software inventory for a specified GitHub Ubuntu image release and identifies observed tool versions that are no longer documented there.
+Receipt comparison narrows run-to-run changes to the tools your build actually used. `runnerlens impact` downloads public GitHub Ubuntu inventories, compares two image releases when both versions are supplied, and filters the result to observed tools.
 
 ---
 
