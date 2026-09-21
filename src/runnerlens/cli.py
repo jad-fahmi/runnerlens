@@ -82,12 +82,23 @@ def run_command(args: argparse.Namespace) -> int:
 
 
 def show_command(args: argparse.Namespace) -> int:
-    data = load_receipt(Path(args.receipt))
+    receipt_path = Path(args.receipt)
+    try:
+        data = load_receipt(receipt_path)
+    except (OSError, ValueError) as error:
+        print(f"could not read receipt {receipt_path}: {error}", file=sys.stderr)
+        return 2
+
     if args.json:
         print(to_json(data), end="")
         return 0
 
-    print(render_report(receipt_from_dict(data)), end="")
+    try:
+        print(render_report(receipt_from_dict(data)), end="")
+    except (KeyError, TypeError) as error:
+        print(f"could not render receipt {receipt_path}: {error}", file=sys.stderr)
+        return 2
+
     return 0
 
 
