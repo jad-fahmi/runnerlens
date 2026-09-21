@@ -20,6 +20,10 @@ The default implementation should avoid collecting unnecessary:
 - unrelated process information
 - command arguments unless a feature explicitly justifies them
 
+Version and package resolution is limited to dependencies classified as
+`runner-provided` or `tool-cache`. RunnerLens does not invoke repository-provided
+executables again to ask for their version.
+
 ## Reporting Vulnerabilities
 
 Until a dedicated process is published, please open a private security advisory on GitHub if available, or contact the repository maintainer privately.

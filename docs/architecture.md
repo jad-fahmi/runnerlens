@@ -49,6 +49,10 @@ version with `--version`, and queries `dpkg-query` for the owning Debian package
 Both operations are bounded by a short timeout. A value is omitted when either
 source does not return reliable evidence.
 
+Resolution is limited to dependencies already classified as `runner-provided`
+or `tool-cache`. RunnerLens does not invoke repository-provided executables a
+second time merely to obtain metadata.
+
 `runnerlens compare` compares two receipts and reports observed dependencies as
 added, removed, changed, or unchanged. It does not claim that a changed tool was
 caused by the runner image: it preserves both receipts as the underlying evidence.

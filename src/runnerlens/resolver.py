@@ -12,6 +12,7 @@ from runnerlens.models import Dependency
 
 
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
+RESOLVABLE_ORIGINS = frozenset({"runner-provided", "tool-cache"})
 
 
 def enrich_dependencies(dependencies: list[Dependency]) -> list[Dependency]:
@@ -19,14 +20,19 @@ def enrich_dependencies(dependencies: list[Dependency]) -> list[Dependency]:
     if platform.system() != "Linux":
         return dependencies
 
-    return [
-        replace(
-            dependency,
-            version=detect_version(dependency.path),
-            package=find_package_owner(dependency.path),
+    enriched: list[Dependency] = []
+    for dependency in dependencies:
+        if dependency.origin not in RESOLVABLE_ORIGINS:
+            enriched.append(dependency)
+            continue
+        enriched.append(
+            replace(
+                dependency,
+                version=detect_version(dependency.path),
+                package=find_package_owner(dependency.path),
+            )
         )
-        for dependency in dependencies
-    ]
+    return enriched
 
 
 def detect_version(path: str | None) -> str | None:
