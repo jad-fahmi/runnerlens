@@ -2,64 +2,62 @@
 
 # RunnerLens
 
-### Know what your build inherits.
-
-**Reveal the hidden tools your build depends on from its CI runner — and see which runner-image changes can actually affect it.**
+**Know what your build inherits.**
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Project Status](https://img.shields.io/badge/status-early%20development-orange)](#project-status)
 
 </div>
 
----
+RunnerLens reveals the tools your build inherits from its CI runner and shows which runner image changes can affect it.
 
-## Why RunnerLens?
+Hosted CI runners include compilers, runtimes, SDKs, package managers, and build tools by default. A build can silently depend on those tools without explicitly installing them.
 
-Hosted CI runners come with compilers, runtimes, SDKs, package managers, build tools, and system utilities already installed.
+When the runner image changes, the repository may stay the same while the build starts behaving differently.
 
-That convenience can hide part of your real build dependency graph.
-
-A workflow might only say:
-
-```yaml
-- uses: actions/checkout@v4
-
-- name: Build
-  run: make
-```
-
-while the build actually relies on:
-
-```text
-make
- └── cmake
-      └── ninja
-           └── clang
-```
-
-If one of those runner-provided tools changes, your source code may remain identical while the build starts behaving differently.
-
-RunnerLens is being built to make those dependencies visible.
-
-Instead of asking:
-
-> What changed in the entire runner image?
-
-RunnerLens aims to answer:
-
-> What changed that this build actually depends on?
+RunnerLens makes those dependencies visible.
 
 ---
 
-## See It in Action
+## Quick Links
 
-The intended RunnerLens workflow is deliberately simple.
+* [Getting Started](#getting-started)
+* [Why RunnerLens](#why-runnerlens)
+* [Runner Dependency Receipts](#runner-dependency-receipts)
+* [How It Works](#how-it-works)
+* [Compatibility](#compatibility)
+* [Limitations](#limitations)
+* [Contributing](#contributing)
+* [License](#license)
+
+---
+
+## Getting Started
+
+> [!NOTE]
+> RunnerLens is currently under development. The commands below describe the current local development scaffold.
+
+Install the local development package:
 
 ```text
-$ runnerlens run -- make release
+python -m pip install -e ".[dev]"
+```
 
+RunnerLens wraps an existing build or test command and writes a receipt to `runnerlens-receipt.json` by default:
+
+```text
+runnerlens run -- make
+```
+
+Inspect a saved receipt later with:
+
+```text
+runnerlens show runnerlens-receipt.json
+```
+
+Example output:
+
+```text
 RunnerLens
-────────────────────────────────────────────
 
 Runner
   GitHub Actions
@@ -68,122 +66,120 @@ Runner
 Observed runner dependencies
 
   cmake
-    /usr/local/bin/cmake
-    version     4.x
-    origin      runner-provided
+    path: /usr/local/bin/cmake
+    origin: runner-provided
 
   ninja
-    /usr/bin/ninja
-    version     1.x
-    origin      runner-provided
+    path: /usr/bin/ninja
+    origin: runner-provided
 
   clang
-    /usr/bin/clang
-    version     20.x
-    origin      runner-provided
+    path: /usr/bin/clang
+    origin: runner-provided
 
-────────────────────────────────────────────
 3 runner-provided dependencies observed
 ```
 
-The resulting **Runner Dependency Receipt** can then be compared against runner-image changes:
+Runner image impact comparison is planned. Instead of comparing the entire runner environment, RunnerLens will focus on the parts your build actually used.
 
-```text
-$ runnerlens impact receipt.json
+---
 
-Runner image impact
-────────────────────────────────────────────
+## Why RunnerLens?
 
-Observed dependencies     3
-Changed                   1
-Removed                   0
-Unchanged                 2
+### Find hidden build dependencies
 
-Relevant changes
+Discover tools that your build uses from the CI runner without explicitly provisioning them.
 
-  cmake
-    previous    4.x
-    current     4.y
+### Debug unexpected CI failures
 
-────────────────────────────────────────────
-1 observed dependency may be affected
+Identify runner image changes that intersect with tools your build actually uses.
+
+### Prepare runner migrations
+
+See which observed dependencies change before moving between runner images.
+
+### Improve build reproducibility
+
+Expose dependencies that currently exist only because the runner happens to provide them.
+
+### Understand self-hosted runner requirements
+
+Use observed dependencies as evidence when preparing your own runner image.
+
+---
+
+## Runner Dependency Receipts
+
+RunnerLens records observed environment dependencies in a **Runner Dependency Receipt**.
+
+A receipt contains information such as:
+
+```json
+{
+  "runner": {
+    "provider": "github-actions",
+    "image": "ubuntu-24.04"
+  },
+  "dependencies": [
+    {
+      "name": "cmake",
+      "path": "/usr/local/bin/cmake",
+      "origin": "runner-provided",
+      "confidence": "confirmed"
+    }
+  ]
+}
 ```
 
-The examples above show the intended interface. RunnerLens is currently in early development and these commands are not yet a stable public API.
+Receipts are designed to support both human investigation and automated comparison.
+
+They can eventually answer questions such as:
+
+* What runner-provided tools does this build use?
+* What changed since the last successful run?
+* Did this pull request introduce a new ambient dependency?
+* Will a runner image update affect this project?
+* What needs to be installed on a self-hosted runner?
 
 ---
 
-## Quick Links
+## How It Works
 
-* [The Problem](#the-problem)
-* [What RunnerLens Does](#what-runnerlens-does)
-* [Getting Started](#getting-started)
-* [Why Use RunnerLens?](#why-use-runnerlens)
-* [Runner Dependency Receipts](#runner-dependency-receipts)
-* [How It Works](#how-it-works)
-* [Initial Scope](#initial-scope)
-* [Compatibility](#compatibility)
-* [Security and Privacy](#security-and-privacy)
-* [Roadmap](#roadmap)
-* [Known Limitations](#known-limitations)
-* [Contributing](#contributing)
-* [Project Status](#project-status)
-
----
-
-## The Problem
-
-CI environments are part of the build whether we explicitly acknowledge them or not.
-
-Consider a project that executes:
+RunnerLens observes the command being executed and resolves the external tools it uses.
 
 ```text
-cmake
-ninja
-clang
-python
-protoc
+Build Command
+     |
+     v
+Runtime Observer
+     |
+     v
+Dependency Resolver
+     |
+     v
+Origin Classifier
+     |
+     v
+Runner Metadata
+     |
+     v
+Dependency Receipt
+     |
+     v
+Impact Analysis
 ```
 
-Those tools may have been:
+### Runtime Observer
 
-* explicitly installed by the workflow;
-* downloaded by a setup action;
-* included in the repository;
-* pulled from a tool cache;
-* provided by a container;
-* already installed on the CI runner.
+Records relevant process execution under the command being analyzed.
 
-Those situations are not equivalent.
+### Dependency Resolver
 
-When a build silently accepts whatever happens to exist on the runner, the build inherits an **ambient dependency**.
+Identifies executables, versions, paths, and package ownership where possible.
 
-That dependency may remain invisible until:
+### Origin Classifier
 
-* the runner image updates;
-* a tool version changes;
-* a tool is removed;
-* the project moves to another runner;
-* the build is reproduced locally;
-* the project migrates to self-hosted infrastructure.
-
-Debugging then becomes an environment investigation instead of a source-code investigation.
-
-RunnerLens is designed around that failure mode.
-
----
-
-## What RunnerLens Does
-
-RunnerLens observes a real build or test command and attempts to answer four questions:
-
-### 1. What did the build execute?
-
-RunnerLens observes the process tree beneath the command being analyzed.
-
-### 2. Where did those tools come from?
-
-Observed executables are classified where possible as:
+Determines whether an observed dependency is:
 
 ```text
 runner-provided
@@ -194,172 +190,19 @@ container-provided
 unknown
 ```
 
-### 3. What environment produced the build?
+### Runner Metadata
 
-RunnerLens records relevant CI runner metadata alongside the observation.
+Correlates observed dependencies with information about the CI runner image.
 
-### 4. Which environment changes matter?
+### Impact Analysis
 
-RunnerLens correlates observed dependencies with runner-image changes so unrelated environment updates can be filtered out.
-
-The intended relationship is:
-
-```text
-actual execution
-        ↓
-dependency identity
-        ↓
-dependency origin
-        ↓
-runner provenance
-        ↓
-runner-image history
-        ↓
-build-specific impact
-```
-
----
-
-## Getting Started
-
-> [!NOTE]
-> RunnerLens is currently in early development. Stable installation instructions will be added with the first usable release.
-
-The current development scaffold can be installed locally with:
-
-```text
-python -m pip install -e ".[dev]"
-```
-
-Then run the CLI around a command:
-
-```text
-runnerlens run -- python --version
-```
-
-This writes a JSON receipt to `runnerlens-receipt.json` and prints a short human-readable report.
-
-Run the test suite with:
-
-```text
-python -m pytest
-```
-
-The first supported workflow will target:
-
-```text
-GitHub Actions
-+
-GitHub-hosted Ubuntu runner
-+
-one explicit build/test command
-```
-
-The intended usage model is:
-
-```text
-runnerlens run -- <your existing command>
-```
-
-For example:
-
-```text
-runnerlens run -- make
-```
-
-or:
-
-```text
-runnerlens run -- cargo build
-```
-
-or:
-
-```text
-runnerlens run -- ./gradlew test
-```
-
-RunnerLens should fit around an existing build rather than requiring developers to replace their build system.
-
----
-
-## Why Use RunnerLens?
-
-### Identify hidden build dependencies
-
-Discover tools your build uses from the runner without explicitly provisioning them.
-
-### Debug unexplained CI changes
-
-Narrow a large runner-image update down to changes relevant to your build.
-
-### Prepare runner migrations
-
-Understand which environment dependencies matter before moving between runner images.
-
-### Improve reproducibility
-
-Expose dependencies that currently exist only because the CI environment happens to provide them.
-
-### Understand self-hosted requirements
-
-Use observed dependencies as evidence when determining what a custom runner image actually needs.
-
-### Detect dependency drift
-
-Future baseline support will make it possible to detect newly introduced runner dependencies between builds.
-
----
-
-## Runner Dependency Receipts
-
-The central RunnerLens artifact is a **Runner Dependency Receipt**.
-
-A receipt is a versioned, machine-readable record of the environment dependencies observed during a build.
-
-Conceptually:
-
-```json
-{
-  "runner": {
-    "provider": "github-actions",
-    "image": "ubuntu-24.04",
-    "image_version": "..."
-  },
-  "command": "make release",
-  "dependencies": [
-    {
-      "name": "cmake",
-      "path": "/usr/local/bin/cmake",
-      "version": "4.x",
-      "origin": "runner-provided",
-      "confidence": "confirmed"
-    }
-  ]
-}
-```
-
-Receipts are intended to support both human investigation and future automation.
-
-A repository could eventually use them to answer questions such as:
-
-```text
-What runner dependencies does this build have?
-
-What changed since the last successful build?
-
-Did this pull request introduce a new ambient dependency?
-
-Will the next runner image affect this project?
-
-What software must a self-hosted runner provide?
-```
+Filters runner image changes down to dependencies observed in the build.
 
 ---
 
 ## Evidence Over Guessing
 
-RunnerLens should never claim more than its evidence establishes.
+RunnerLens should only report what it can support with evidence.
 
 Seeing:
 
@@ -367,362 +210,167 @@ Seeing:
 /usr/bin/cmake
 ```
 
-does not automatically prove:
+does not automatically mean the workflow forgot to install CMake.
 
-> The project forgot to declare CMake.
+The tool may have been installed earlier in the workflow.
 
-The executable may have been intentionally installed during an earlier workflow step.
-
-RunnerLens should therefore prefer:
+RunnerLens should report:
 
 ```text
 origin: unknown
 ```
 
-over an unsupported conclusion.
+when provenance cannot be established reliably.
 
-Provenance information should include confidence where appropriate.
-
-The project is intended to produce inspectable evidence, not confident-looking guesses.
-
----
-
-## How It Works
-
-RunnerLens is designed around separate observation and interpretation layers.
-
-```text
-Build / Test Command
-        │
-        ▼
-┌──────────────────────┐
-│   Runtime Observer   │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Normalized Execution │
-│        Events        │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Dependency Resolver  │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Origin Classifier   │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│   Runner Provider    │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Dependency Receipt   │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│    Impact Engine     │
-└──────────────────────┘
-```
-
-### Runtime Observer
-
-Captures relevant process execution beneath the command being analyzed.
-
-### Dependency Resolver
-
-Turns raw executable observations into useful dependency identities.
-
-### Origin Classifier
-
-Determines where a dependency came from when sufficient evidence exists.
-
-### Runner Provider
-
-Understands provider-specific runner metadata and environment manifests.
-
-### Receipt Engine
-
-Produces a stable representation of the observed build environment dependencies.
-
-### Impact Engine
-
-Intersects a dependency receipt with changes between runner environments.
-
----
-
-## Initial Scope
-
-The first useful version of RunnerLens will intentionally be narrow.
-
-### Planned
-
-* GitHub Actions
-* GitHub-hosted Ubuntu runners
-* explicit command observation
-* process-tree collection
-* executable path resolution
-* executable version detection where reliable
-* Linux package ownership where reliable
-* runner-image metadata correlation
-* human-readable reports
-* JSON dependency receipts
-* runner-image impact comparison
-
-### Not Planned for v0.1
-
-* Windows support
-* macOS support
-* complete arbitrary-job tracing
-* vulnerability scanning
-* malware detection
-* network monitoring
-* AI-generated diagnoses
-* automated workflow rewriting
-* hosted dashboards
-* complete build-hermeticity verification
-
-RunnerLens will expand only where real use cases justify the additional complexity.
+Reliable evidence is more important than confident output.
 
 ---
 
 ## Compatibility
 
-Initial compatibility targets:
+Initial target:
 
-| Environment              | Planned Support  |
-| ------------------------ | ---------------- |
-| GitHub-hosted Ubuntu     | ✅ Initial target |
-| GitHub-hosted Windows    | ⏳ Future         |
-| GitHub-hosted macOS      | ⏳ Future         |
-| GitHub self-hosted Linux | ⏳ Future         |
-| GitLab CI                | ⏳ Future         |
-| Azure Pipelines          | ⏳ Future         |
-| Buildkite                | ⏳ Future         |
+| Environment           | Support       |
+| --------------------- | ------------- |
+| GitHub-hosted Ubuntu  | Planned first |
+| GitHub-hosted Windows | Future        |
+| GitHub-hosted macOS   | Future        |
+| Self-hosted Linux     | Future        |
+| GitLab CI             | Future        |
+| Azure Pipelines       | Future        |
+| Buildkite             | Future        |
 
-Support should only be marked complete once it is covered by real integration tests.
+Support will only be marked complete once it is covered by real integration tests.
 
 ---
 
 ## What RunnerLens Is Not
 
-RunnerLens overlaps with several existing tool categories but is not intended to replace them.
+RunnerLens is not an SBOM generator.
 
-### SBOM tools
+RunnerLens is not a vulnerability scanner.
 
-SBOM tools describe software components in an artifact or environment.
+RunnerLens is not a CI runtime security product.
 
-RunnerLens focuses on dependencies **observed during build execution and inherited from the runner**.
+RunnerLens is not a replacement for Bazel, Nix, containers, or other reproducible build systems.
 
-### CI runtime security
+RunnerLens focuses on one problem:
 
-Runtime security products detect suspicious process, filesystem, and network activity.
-
-RunnerLens focuses on build-environment dependencies and environment drift.
-
-### Environment diff tools
-
-Environment diff tools answer:
-
-> What changed between these environments?
-
-RunnerLens aims to answer:
-
-> Which of those changes intersect with dependencies this build actually used?
-
-### Build systems
-
-RunnerLens does not replace Bazel, Nix, containers, or other reproducible-build approaches.
-
-It analyzes builds developers already have.
+> Which parts of the CI environment did this build actually depend on?
 
 ---
 
 ## Security and Privacy
 
-Runtime observation can expose sensitive information if implemented carelessly.
+Runtime observation can expose sensitive information if implemented incorrectly.
 
-RunnerLens should collect only the information required to establish dependency identity and provenance.
+RunnerLens should collect only the information required to identify dependencies and their origin.
 
-The project should avoid collecting unnecessary:
+It should avoid collecting unnecessary:
 
-* environment-variable values;
-* tokens;
-* credentials;
-* file contents;
-* command arguments;
-* unrelated process information.
+* environment variable values
+* credentials
+* tokens
+* file contents
+* command arguments
+* unrelated runtime data
 
-The default model is:
+The default principle is simple:
 
-> **Collect the minimum evidence required to identify the dependency.**
+> Collect the minimum evidence required to identify the dependency.
 
-A formal threat model and [`SECURITY.md`](SECURITY.md) will be maintained as the implementation matures.
+A dedicated security policy and threat model will be maintained as the project develops.
+
+---
+
+## Limitations
+
+RunnerLens will not detect every form of environment dependency.
+
+The first version will focus primarily on observed executable dependencies.
+
+It may not detect dependencies on:
+
+* system headers
+* dynamically loaded libraries
+* SDK files
+* environment variables
+* kernel behavior
+* filesystem assumptions
+* background services
+
+A clean RunnerLens report should not be interpreted as proof that a build is fully hermetic.
 
 ---
 
 ## Roadmap
 
-### Phase 1 — Observe
+### Phase 1
 
-Identify external executables used by one build command.
+Observe build commands and identify runner-provided executables.
 
-### Phase 2 — Classify
+### Phase 2
 
-Determine which observed dependencies originate from the runner.
+Generate stable Runner Dependency Receipts.
 
-### Phase 3 — Correlate
+### Phase 3
 
-Connect those dependencies to runner-image metadata.
+Compare receipts against runner image changes.
 
-### Phase 4 — Impact
-
-Show which runner-image changes intersect with the dependency receipt.
-
-### Phase 5 — Baseline
-
-Compare receipts between successful builds.
-
-### Phase 6 — Drift Detection
+### Phase 4
 
 Detect newly introduced ambient dependencies.
 
-### Phase 7 — Migration Analysis
+### Phase 5
 
-Analyze relevant dependency differences between runner environments.
+Analyze runner migrations.
 
-### Phase 8 — Additional Providers
+### Phase 6
 
-Expand beyond GitHub Actions where real demand exists.
+Support additional CI providers and operating systems.
 
----
-
-## Real-World Regression Corpus
-
-RunnerLens should be tested against actual CI environment failures rather than only synthetic examples.
-
-A regression fixture may eventually describe:
-
-```text
-known-good runner image
-known-bad runner image
-sample project
-observed dependency
-expected diagnosis
-```
-
-These fixtures can serve as:
-
-* integration tests;
-* regression tests;
-* product demonstrations;
-* historical documentation;
-* meaningful contribution opportunities.
-
----
-
-## Known Limitations
-
-RunnerLens will initially observe only part of the environment dependency problem.
-
-Executable observation alone may not reveal dependencies on:
-
-* system headers;
-* dynamically loaded libraries;
-* SDK files;
-* environment variables;
-* kernel behavior;
-* filesystem conventions;
-* services already running on the host.
-
-A successful RunnerLens report should therefore not be interpreted as proof that a build is completely hermetic.
-
-The first objective is narrower:
-
-> Identify meaningful executable dependencies inherited from supported CI environments.
-
-See future documentation for a complete list of known limitations as the implementation develops.
-
----
-
-## Project Status
-
-RunnerLens is currently in the **research and early development stage**.
-
-The central hypothesis being tested is:
-
-> Runtime-derived dependency information can materially reduce the effort required to understand CI environment drift.
-
-Before expanding the project substantially, RunnerLens needs to prove that:
-
-* real projects contain meaningful ambient runner dependencies;
-* those dependencies can be classified reliably;
-* dependency receipts help diagnose real runner-image failures;
-* observation overhead remains acceptable;
-* developers find enough recurring value to keep RunnerLens in CI.
-
-A technically impressive tracer is not sufficient.
-
-RunnerLens must solve a recurring developer problem.
+The roadmap will be driven by real usage rather than feature count.
 
 ---
 
 ## Contributing
 
-RunnerLens is intended to become community-extensible only where natural technical boundaries exist.
+RunnerLens is intended to support contributions in areas such as:
 
-Potential future contribution areas include:
+* package provenance resolvers
+* CI provider integrations
+* runner metadata parsers
+* tracing backends
+* operating system support
+* regression fixtures
+* report formats
 
-* package provenance resolvers;
-* runner metadata providers;
-* process-observation backends;
-* CI-platform integrations;
-* operating-system support;
-* historical regression fixtures;
-* report formats;
-* classification improvements.
+Large architectural changes should begin with an issue or discussion.
 
-Small contributions should be capable of improving one area without requiring contributors to understand the entire codebase.
-
-For significant architectural changes, please open an issue or discussion before beginning implementation.
-
-A full [`CONTRIBUTING.md`](CONTRIBUTING.md) will be added as the architecture stabilizes.
+A full `CONTRIBUTING.md` will be added as the architecture stabilizes.
 
 ---
 
-## Discussions
+## Project Status
 
-Questions, use cases, runner regressions, ideas, and early feedback are welcome through GitHub Issues and Discussions.
+RunnerLens is currently in early development.
 
-Especially useful reports include:
+The first objective is to validate that runner dependency information helps diagnose real CI environment problems.
 
-* builds that changed without corresponding source changes;
-* runner-image migrations that caused failures;
-* projects that unknowingly relied on preinstalled runner software;
-* cases where existing debugging tools provided too much environment information and too little build-specific context.
-
-Real incidents will guide the project more than speculative feature requests.
+The project will prioritize real workflows and real failures over synthetic demos.
 
 ---
 
 ## License
 
-RunnerLens is open source under the **Apache License 2.0**.
-
-See [`LICENSE`](LICENSE) for details.
+RunnerLens is licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
 <div align="center">
 
-### RunnerLens
+**RunnerLens**
 
-**Know what your build inherits.**
+Know what your build inherits.
 
 </div>

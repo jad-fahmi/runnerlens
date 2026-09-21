@@ -38,3 +38,12 @@ def test_show_command_renders_human_readable_receipt(tmp_path: Path, capsys) -> 
     assert exit_code == 0
     assert "RunnerLens" in captured.out
     assert '"schema_version"' not in captured.out
+
+
+def test_show_command_reports_missing_receipt(capsys) -> None:
+    exit_code = main(["show", "missing-receipt.json"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "could not read receipt" in captured.err
