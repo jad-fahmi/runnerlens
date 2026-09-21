@@ -17,3 +17,16 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install ".[dev]"
       - run: python -m pytest
+
+  action-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          command: python -c "from pathlib import Path; Path('runnerlens-smoke.txt').write_text('ok')"
+          output: runnerlens-action-receipt.json
+      - name: Verify action receipt
+        run: |
+          python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert receipt['runner']['provider'] == 'github-actions'; assert receipt['dependencies']"
+          test "$(cat runnerlens-smoke.txt)" = "ok"
