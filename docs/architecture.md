@@ -56,6 +56,13 @@ inventory from `actions/runner-images`, normalizes its documented tool versions,
 and correlates only the tools that the receipt observed. A missing metadata match
 is reported as `metadata-unavailable`, never as a removed tool.
 
+## GitHub Action
+
+The composite `action.yml` installs RunnerLens from the checked-out action,
+observes the command supplied by the workflow, and appends the report to the
+GitHub job summary. It deliberately has no network upload step. The only remote
+metadata request is the explicit `runnerlens impact` command.
+
 ## Evidence Rules
 
 RunnerLens should prefer `unknown` over unsupported certainty.
