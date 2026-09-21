@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from runnerlens.classifier import classify_events
-from runnerlens.models import Receipt
+from runnerlens.models import Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.observer import Observation
 from runnerlens.runner import detect_runner
 
@@ -34,6 +34,19 @@ def write_receipt(receipt: Receipt, path: Path) -> None:
 
 def load_receipt(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def receipt_from_dict(data: dict[str, Any]) -> Receipt:
+    return Receipt(
+        runner=RunnerInfo(**data["runner"]),
+        command=ObservedCommand(**data["command"]),
+        dependencies=[Dependency(**dependency) for dependency in data["dependencies"]],
+        events=[ExecutionEvent(**event) for event in data["events"]],
+        started_at=data["started_at"],
+        ended_at=data["ended_at"],
+        exit_code=data["exit_code"],
+        schema_version=data["schema_version"],
+    )
 
 
 def to_json(data: dict[str, Any]) -> str:

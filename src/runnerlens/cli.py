@@ -8,7 +8,7 @@ from pathlib import Path
 
 from runnerlens import __version__
 from runnerlens.observer import observe_command
-from runnerlens.receipt import build_receipt, load_receipt, to_json, write_receipt
+from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
 from runnerlens.report import render_report
 
 
@@ -87,9 +87,7 @@ def show_command(args: argparse.Namespace) -> int:
         print(to_json(data), end="")
         return 0
 
-    # Rehydrate only the fields needed for a display would add noise right now;
-    # JSON output keeps early receipt inspection deterministic.
-    print(to_json(data), end="")
+    print(render_report(receipt_from_dict(data)), end="")
     return 0
 
 
