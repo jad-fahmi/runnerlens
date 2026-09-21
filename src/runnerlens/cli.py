@@ -60,6 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="path installed or configured by an earlier workflow step, repeatable",
     )
     run.add_argument(
+        "--container",
+        action="store_true",
+        help="record that the wrapped command executes inside a container",
+    )
+    run.add_argument(
         "--json",
         action="store_true",
         help="print the JSON receipt instead of the human report",
@@ -105,6 +110,8 @@ def run_command(args: argparse.Namespace) -> int:
     receipt_env = dict(os.environ)
     if args.workflow_provisioned_path:
         receipt_env["RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"] = os.pathsep.join(args.workflow_provisioned_path)
+    if args.container:
+        receipt_env["RUNNERLENS_CONTAINERIZED"] = "true"
     receipt = build_receipt(observation, repository_root=Path.cwd(), env=receipt_env)
     write_receipt(receipt, Path(args.output))
 

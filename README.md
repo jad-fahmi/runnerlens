@@ -55,6 +55,12 @@ that path as evidence so RunnerLens does not mistake it for a base-image tool:
 runnerlens run --workflow-provisioned-path /opt/my-tools -- make
 ```
 
+For a command running in a workflow container, declare that execution boundary:
+
+```text
+runnerlens run --container -- make
+```
+
 Inspect a saved receipt later with:
 
 ```text
@@ -106,6 +112,8 @@ runner-provided or tool-cache dependency. A failing wrapped build retains its
 own exit status regardless of the baseline result.
 `workflow-provisioned-paths` accepts colon-separated Linux paths from earlier
 workflow steps and records matching executables as `workflow-provisioned`.
+Set `container: true` only for commands running in a workflow container. It
+records external executable paths as `container-provided`.
 
 Example output:
 
