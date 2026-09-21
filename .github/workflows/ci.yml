@@ -26,7 +26,11 @@ jobs:
         with:
           command: python -c "from pathlib import Path; Path('runnerlens-smoke.txt').write_text('ok')"
           output: runnerlens-action-receipt.json
-      - name: Verify action receipt
-        run: |
-          python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert receipt['runner']['provider'] == 'github-actions'; assert receipt['dependencies']"
-          test "$(cat runnerlens-smoke.txt)" = "ok"
+      - name: Verify action receipt exists
+        run: test -s runnerlens-action-receipt.json
+      - name: Verify action runner metadata
+        run: python -c "import json; assert json.load(open('runnerlens-action-receipt.json'))['runner']['provider'] == 'github-actions'"
+      - name: Verify action dependencies
+        run: python -c "import json; assert json.load(open('runnerlens-action-receipt.json'))['dependencies']"
+      - name: Verify wrapped command completed
+        run: test "$(cat runnerlens-smoke.txt)" = "ok"
