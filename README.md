@@ -225,6 +225,26 @@ build-specific impact
 > [!NOTE]
 > RunnerLens is currently in early development. Stable installation instructions will be added with the first usable release.
 
+The current development scaffold can be installed locally with:
+
+```text
+python -m pip install -e ".[dev]"
+```
+
+Then run the CLI around a command:
+
+```text
+runnerlens run -- python --version
+```
+
+This writes a JSON receipt to `runnerlens-receipt.json` and prints a short human-readable report.
+
+Run the test suite with:
+
+```text
+python -m pytest
+```
+
 The first supported workflow will target:
 
 ```text

@@ -24,6 +24,16 @@ profile.cov
 go.work
 go.work.sum
 
+# Python packaging/test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
 # env file
 .env
 
