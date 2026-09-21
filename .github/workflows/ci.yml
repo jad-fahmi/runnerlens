@@ -36,6 +36,16 @@ jobs:
         run: python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert any(event['observation'] == 'strace-execve' for event in receipt['events'])"
       - name: Verify wrapped command completed
         run: test "$(cat runnerlens-smoke.txt)" = "ok"
+      - name: Accept the first receipt as a baseline
+        run: cp runnerlens-action-receipt.json runnerlens-accepted-baseline.json
+      - name: Check an unchanged build against the baseline
+        uses: ./
+        with:
+          command: python -c "from pathlib import Path; Path('runnerlens-baseline-smoke.txt').write_text('ok')"
+          output: runnerlens-baseline-check-receipt.json
+          baseline: runnerlens-accepted-baseline.json
+      - name: Verify baseline-check command completed
+        run: test "$(cat runnerlens-baseline-smoke.txt)" = "ok"
       - name: Run a failing command through RunnerLens
         uses: ./
         continue-on-error: true
