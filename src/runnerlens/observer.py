@@ -30,7 +30,7 @@ class Observation:
 
 
 _EXECVE_RE = re.compile(
-    r"^(?:\[pid\s+(?P<pid>\d+)\]\s+)?execve\(\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
+    r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?execve\(\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
 )
 
 

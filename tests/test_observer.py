@@ -7,6 +7,7 @@ from runnerlens.observer import parse_strace_execve
 def test_parse_strace_execve_keeps_successful_process_tree_events() -> None:
     trace = '''execve("/usr/bin/make", ["make"], 0x0 /* 1 var */) = 0
 [pid 42] execve("/usr/bin/cmake", ["cmake"], 0x0 /* 1 var */) = 0
+43 execve("/usr/bin/ninja", ["ninja"], 0x0 /* 1 var */) = 0
 [pid 42] execve("/usr/bin/missing", ["missing"], 0x0 /* 1 var */) = -1 ENOENT (No such file or directory)
 '''
 
@@ -15,6 +16,7 @@ def test_parse_strace_execve_keeps_successful_process_tree_events() -> None:
     assert [(event.executable, event.path, event.pid) for event in events] == [
         ("make", "/usr/bin/make", None),
         ("cmake", "/usr/bin/cmake", 42),
+        ("ninja", "/usr/bin/ninja", 43),
     ]
     assert all(event.observation == "strace-execve" for event in events)
 
