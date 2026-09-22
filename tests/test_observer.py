@@ -65,3 +65,13 @@ def test_observer_retains_root_event_when_strace_has_no_parseable_events(monkeyp
     assert len(result.events) == 1
     assert result.events[0].path == "/usr/bin/bash"
     assert result.events[0].observation == "subprocess-root-fallback"
+
+
+def test_observer_marks_an_action_wrapper_as_a_launcher(monkeypatch) -> None:
+    monkeypatch.setattr(observer.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
+    monkeypatch.setattr(observer, "_observe_root_command", lambda argv, cwd, resolved: ([observer._root_event(argv[0], resolved, "subprocess-root")], 0))
+
+    result = observer.observe_command(["bash"], root_is_launcher=True)
+
+    assert result.events[0].role == "launcher"

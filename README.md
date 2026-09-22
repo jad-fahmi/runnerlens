@@ -61,6 +61,14 @@ For a command running in a workflow container, declare that execution boundary:
 runnerlens run --container -- make
 ```
 
+RunnerLens preserves shell and utility executions as receipt events, but keeps
+routine launcher and support tools out of dependency output by default. Include
+them when investigating the full process trace:
+
+```text
+runnerlens run --include-support-tools -- make
+```
+
 Inspect a saved receipt later with:
 
 ```text

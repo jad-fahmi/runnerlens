@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 
 from runnerlens.models import ExecutionEvent, ObservedCommand, utc_now
@@ -39,7 +40,9 @@ _PROCESS_CREATE_RE = re.compile(
 _ROOT_GETPID_RE = re.compile(r"^getpid\(\)\s+=\s+(?P<pid>\d+)$")
 
 
-def observe_command(argv: list[str], cwd: Path | None = None) -> Observation:
+def observe_command(
+    argv: list[str], cwd: Path | None = None, root_is_launcher: bool = False
+) -> Observation:
     if not argv:
         raise ValueError("no command provided")
 
@@ -52,6 +55,9 @@ def observe_command(argv: list[str], cwd: Path | None = None) -> Observation:
             events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]
     else:
         events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+
+    if root_is_launcher and events:
+        events[0] = replace(events[0], role="launcher")
 
     ended_at = utc_now()
 

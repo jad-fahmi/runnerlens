@@ -41,11 +41,18 @@ Example:
     {
       "executable": "make",
       "path": "/usr/bin/make",
-      "observation": "subprocess-root"
+      "observation": "subprocess-root",
+      "role": "build-tool"
     }
   ]
 }
 ```
+
+Events preserve raw execution evidence. `role` is `build-tool` by default and
+is `launcher` for a wrapper such as the composite GitHub Action shell. The
+default dependency list excludes launcher events and routine shell utilities to
+keep the receipt focused. Use `runnerlens run --include-support-tools` to
+include them in dependency output.
 
 ## Origin Values
 

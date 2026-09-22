@@ -15,12 +15,30 @@ from runnerlens.resolver import enrich_dependencies
 from runnerlens.runner import detect_runner
 
 
+SUPPORT_EXECUTABLES = frozenset({"awk", "basename", "bash", "cat", "cut", "dirname", "env", "grep", "sed", "sh", "tr"})
+
+
 def build_receipt(
-    observation: Observation, repository_root: Path, env: Mapping[str, str] | None = None
+    observation: Observation,
+    repository_root: Path,
+    env: Mapping[str, str] | None = None,
+    include_support_tools: bool = False,
 ) -> Receipt:
     data = env if env is not None else os.environ
     runner = detect_runner(data)
-    dependencies = enrich_dependencies(classify_events(observation.events, runner, repository_root, data))
+    dependencies = classify_events(observation.events, runner, repository_root, data)
+    if not include_support_tools:
+        reportable_keys = {
+            (event.executable, event.path)
+            for event in observation.events
+            if _is_reportable_event(event)
+        }
+        dependencies = [
+            dependency
+            for dependency in dependencies
+            if (dependency.name, dependency.path) in reportable_keys
+        ]
+    dependencies = enrich_dependencies(dependencies)
 
     return Receipt(
         runner=runner,
@@ -64,3 +82,7 @@ def receipt_from_dict(data: dict[str, Any]) -> Receipt:
 
 def to_json(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2, sort_keys=True) + "\n"
+
+
+def _is_reportable_event(event: ExecutionEvent) -> bool:
+    return event.role != "launcher" and event.executable not in SUPPORT_EXECUTABLES
