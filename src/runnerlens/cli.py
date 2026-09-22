@@ -7,9 +7,10 @@ import sys
 from pathlib import Path
 
 from runnerlens import __version__
+from runnerlens.impact import compare_receipts
 from runnerlens.observer import observe_command
 from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
-from runnerlens.report import render_report
+from runnerlens.report import render_impact_report, render_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,6 +24,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_command(args)
     if args.command_name == "show":
         return show_command(args)
+    if args.command_name == "compare":
+        return compare_command(args)
 
     parser.print_help()
     return 2
@@ -58,6 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
     show = subcommands.add_parser("show", help="render an existing JSON receipt")
     show.add_argument("receipt", help="path to a RunnerLens receipt JSON file")
     show.add_argument("--json", action="store_true", help="print normalized JSON")
+
+    compare = subcommands.add_parser("compare", help="compare dependencies from two receipts")
+    compare.add_argument("baseline", help="path to the known-good receipt")
+    compare.add_argument("target", help="path to the receipt being evaluated")
+    compare.add_argument("--json", action="store_true", help="print JSON impact data")
 
     return parser
 
@@ -99,6 +107,22 @@ def show_command(args: argparse.Namespace) -> int:
         print(f"could not render receipt {receipt_path}: {error}", file=sys.stderr)
         return 2
 
+    return 0
+
+
+def compare_command(args: argparse.Namespace) -> int:
+    try:
+        baseline = receipt_from_dict(load_receipt(Path(args.baseline)))
+        target = receipt_from_dict(load_receipt(Path(args.target)))
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"could not compare receipts: {error}", file=sys.stderr)
+        return 2
+
+    impact = compare_receipts(baseline, target)
+    if args.json:
+        print(to_json(impact.to_dict()), end="")
+    else:
+        print(render_impact_report(impact), end="")
     return 0
 
 
