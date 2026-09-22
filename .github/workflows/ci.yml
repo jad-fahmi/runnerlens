@@ -99,3 +99,27 @@ jobs:
             --baseline-image-version 20260831.293.1 \
             --target-image-version 20260907.300.1 > runner-image-impact.txt
           grep -F "changed              cargo" runner-image-impact.txt
+
+  public-repository-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fetch a pinned public CMake project
+        run: |
+          git clone --no-checkout https://github.com/fmtlib/fmt.git fmt-fixture
+          git -C fmt-fixture checkout 40626af88bd7df9a5fb80be7b25ac85b122d6c21
+      - uses: ./
+        with:
+          command: |
+            cmake -S fmt-fixture -B fmt-build -G Ninja
+            cmake --build fmt-build
+          output: public-fmt-receipt.json
+      - name: Verify observed runner dependencies
+        run: python -c "import json; dependencies = json.load(open('public-fmt-receipt.json'))['dependencies']; names = {item['name']: item for item in dependencies}; assert names['cmake']['origin'] == 'runner-provided'; assert names['ninja']['origin'] == 'runner-provided'"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-fmt-receipt
+          path: public-fmt-receipt.json
