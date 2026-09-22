@@ -51,6 +51,11 @@ source does not return reliable evidence.
 added, removed, changed, or unchanged. It does not claim that a changed tool was
 caused by the runner image: it preserves both receipts as the underlying evidence.
 
+For GitHub-hosted Ubuntu receipts, `runnerlens impact` fetches the exact release
+inventory from `actions/runner-images`, normalizes its documented tool versions,
+and correlates only the tools that the receipt observed. A missing metadata match
+is reported as `metadata-unavailable`, never as a removed tool.
+
 ## Evidence Rules
 
 RunnerLens should prefer `unknown` over unsupported certainty.

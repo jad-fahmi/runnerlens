@@ -1,4 +1,5 @@
-from runnerlens.impact import compare_receipts
+from runnerlens.github import GitHubImageManifest
+from runnerlens.impact import compare_receipts, correlate_receipt_with_image
 from runnerlens.models import Dependency, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.report import render_impact_report
 
@@ -40,3 +41,26 @@ def test_compare_receipts_reports_only_observed_dependency_changes() -> None:
     ]
     report = render_impact_report(impact)
     assert "changed   cmake (3.28.1 -> 3.30.2)" in report
+
+
+def test_image_impact_preserves_unknown_metadata_as_unavailable() -> None:
+    receipt = _receipt(
+        [
+            Dependency("cmake", "/usr/bin/cmake", "runner-provided", "probable", version="3.28.1"),
+            Dependency("custom-tool", "/usr/bin/custom-tool", "unknown", "unknown", version="1.0.0"),
+        ],
+        "20260901.1",
+    )
+    manifest = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260922.1",
+        source_url="https://example.test/manifest",
+        tools={"cmake": ("3.30.2",)},
+    )
+
+    impact = correlate_receipt_with_image(receipt, manifest)
+
+    assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
+        ("cmake", "version-changed"),
+        ("custom-tool", "metadata-unavailable"),
+    ]

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from runnerlens.cli import main
+from runnerlens.github import GitHubImageManifest
 
 
 def test_version_command_prints_version(capsys) -> None:
@@ -83,3 +84,47 @@ def test_compare_command_renders_receipt_impact(tmp_path: Path, capsys) -> None:
 
     assert exit_code == 0
     assert "changed   cmake (1.0.0 -> 2.0.0)" in captured.out
+
+
+def test_impact_command_fetches_target_image_metadata(tmp_path: Path, capsys, monkeypatch) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0",
+                "started_at": "2026-09-21T00:00:00+00:00",
+                "ended_at": "2026-09-21T00:00:01+00:00",
+                "exit_code": 0,
+                "runner": {"provider": "github-actions", "image": "ubuntu24"},
+                "command": {"executable": "cmake", "arguments_recorded": False},
+                "dependencies": [
+                    {
+                        "name": "cmake",
+                        "path": "/usr/bin/cmake",
+                        "origin": "runner-provided",
+                        "confidence": "probable",
+                        "version": "3.28.1",
+                    }
+                ],
+                "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "runnerlens.cli.fetch_ubuntu_manifest",
+        lambda image, version: GitHubImageManifest(
+            image=image,
+            release=f"ubuntu24/{version}",
+            source_url="https://example.test/manifest",
+            tools={"cmake": ("3.30.2",)},
+        ),
+    )
+
+    exit_code = main(["impact", str(receipt_path), "--target-image-version", "20260922.1"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "version-changed      cmake" in captured.out
+    assert "Metadata source: https://example.test/manifest" in captured.out
