@@ -66,6 +66,21 @@ Check observed tools against a specific GitHub Ubuntu runner-image release:
 runnerlens impact runnerlens-receipt.json --target-image-version 20260907.131.1
 ```
 
+### GitHub Actions
+
+Use the composite action after checkout and any intentional provisioning steps:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: jad-fahmi/runnerlens@main
+  with:
+    command: python -m pytest
+```
+
+The action writes `runnerlens-receipt.json` and publishes the human-readable
+receipt to the job summary. To retain the JSON receipt between runs, upload it
+with `actions/upload-artifact` or commit it as a reviewed baseline.
+
 Example output:
 
 ```text
@@ -245,7 +260,7 @@ Initial target:
 
 | Environment           | Support       |
 | --------------------- | ------------- |
-| GitHub-hosted Ubuntu  | Planned first |
+| GitHub-hosted Ubuntu  | Supported |
 | GitHub-hosted Windows | Future        |
 | GitHub-hosted macOS   | Future        |
 | Self-hosted Linux     | Future        |
@@ -292,7 +307,8 @@ The default principle is simple:
 
 > Collect the minimum evidence required to identify the dependency.
 
-A dedicated security policy and threat model will be maintained as the project develops.
+The composite action executes only the command supplied in its `command` input.
+It sends no receipt data to RunnerLens services. A dedicated security policy and threat model will be maintained as the project develops.
 
 ---
 
