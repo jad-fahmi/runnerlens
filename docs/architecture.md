@@ -41,6 +41,8 @@ The current scaffold implements the first narrow slice:
 On Linux with `strace` available, the observer records successful `execve` calls
 from the wrapped command's process tree. Elsewhere, it records only the wrapped
 root command and labels that lower-coverage observation method in the receipt.
+If `strace` completes without any parseable execution events, RunnerLens also
+retains the root command with a `subprocess-root-fallback` observation label.
 
 After classification, RunnerLens asks an observed absolute executable for its
 version with `--version`, and queries `dpkg-query` for the owning Debian package.

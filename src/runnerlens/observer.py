@@ -43,6 +43,8 @@ def observe_command(argv: list[str], cwd: Path | None = None) -> Observation:
     resolved_path = shutil.which(executable, path=os.environ.get("PATH"))
     if platform.system() == "Linux" and shutil.which("strace"):
         events, exit_code = _observe_with_strace(argv, cwd)
+        if not events:
+            events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]
     else:
         events, exit_code = _observe_root_command(argv, cwd, resolved_path)
 
@@ -64,13 +66,16 @@ def observe_command(argv: list[str], cwd: Path | None = None) -> Observation:
 def _observe_root_command(
     argv: list[str], cwd: Path | None, resolved_path: str | None
 ) -> tuple[list[ExecutionEvent], int]:
-    event = ExecutionEvent(
-        executable=Path(argv[0]).name,
-        path=resolved_path,
-        observation="subprocess-root",
-    )
     completed = subprocess.run(argv, cwd=cwd, check=False)
-    return [event], completed.returncode
+    return [_root_event(argv[0], resolved_path, "subprocess-root")], completed.returncode
+
+
+def _root_event(executable: str, resolved_path: str | None, observation: str) -> ExecutionEvent:
+    return ExecutionEvent(
+        executable=Path(executable).name,
+        path=resolved_path,
+        observation=observation,
+    )
 
 
 def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[ExecutionEvent], int]:
