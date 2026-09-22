@@ -60,6 +60,12 @@ Compare a known-good receipt with a newer run:
 runnerlens compare baseline-receipt.json runnerlens-receipt.json
 ```
 
+Fail CI when a build introduces a new runner-provided or tool-cache dependency:
+
+```text
+runnerlens check baseline-receipt.json runnerlens-receipt.json
+```
+
 Check observed tools against a specific GitHub Ubuntu runner-image release:
 
 ```text
@@ -348,7 +354,7 @@ Compare receipts against runner image changes.
 
 ### Phase 4
 
-Detect newly introduced ambient dependencies.
+Detect newly introduced ambient dependencies. `runnerlens check` is available for receipt baselines.
 
 ### Phase 5
 

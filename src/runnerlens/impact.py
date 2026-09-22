@@ -9,6 +9,9 @@ from runnerlens.github import GitHubImageManifest, manifest_versions
 from runnerlens.models import Dependency, Receipt, RunnerInfo
 
 
+AMBIENT_ORIGINS = frozenset({"runner-provided", "tool-cache"})
+
+
 @dataclass(frozen=True)
 class DependencyImpact:
     name: str
@@ -93,6 +96,17 @@ def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
         target_runner=target.runner,
         dependencies=impacts,
     )
+
+
+def newly_observed_ambient_dependencies(impact: ReceiptImpact) -> list[DependencyImpact]:
+    """Return added dependencies with evidence of runner-environment origin."""
+    return [
+        dependency
+        for dependency in impact.dependencies
+        if dependency.status == "added"
+        and dependency.target is not None
+        and dependency.target.origin in AMBIENT_ORIGINS
+    ]
 
 
 def correlate_receipt_with_image(receipt: Receipt, manifest: GitHubImageManifest) -> ImageImpact:

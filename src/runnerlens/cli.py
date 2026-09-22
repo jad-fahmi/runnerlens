@@ -8,10 +8,10 @@ from pathlib import Path
 
 from runnerlens import __version__
 from runnerlens.github import fetch_ubuntu_manifest
-from runnerlens.impact import compare_receipts, correlate_receipt_with_image
+from runnerlens.impact import compare_receipts, correlate_receipt_with_image, newly_observed_ambient_dependencies
 from runnerlens.observer import observe_command
 from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
-from runnerlens.report import render_image_impact_report, render_impact_report, render_report
+from runnerlens.report import render_baseline_report, render_image_impact_report, render_impact_report, render_report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
         return compare_command(args)
     if args.command_name == "impact":
         return image_impact_command(args)
+    if args.command_name == "check":
+        return check_command(args)
 
     parser.print_help()
     return 2
@@ -75,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
     impact.add_argument("--target-image", help="target Ubuntu image, defaults to the receipt image")
     impact.add_argument("--target-image-version", required=True, help="target GitHub runner image version")
     impact.add_argument("--json", action="store_true", help="print JSON impact data")
+
+    check = subcommands.add_parser("check", help="fail when a receipt adds ambient runner dependencies")
+    check.add_argument("baseline", help="path to the accepted baseline receipt")
+    check.add_argument("target", help="path to the receipt being evaluated")
+    check.add_argument("--json", action="store_true", help="print JSON comparison data")
 
     return parser
 
@@ -154,6 +161,22 @@ def image_impact_command(args: argparse.Namespace) -> int:
     else:
         print(render_image_impact_report(impact), end="")
     return 0
+
+
+def check_command(args: argparse.Namespace) -> int:
+    try:
+        baseline = receipt_from_dict(load_receipt(Path(args.baseline)))
+        target = receipt_from_dict(load_receipt(Path(args.target)))
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"could not check receipt baseline: {error}", file=sys.stderr)
+        return 2
+
+    impact = compare_receipts(baseline, target)
+    if args.json:
+        print(to_json(impact.to_dict()), end="")
+    else:
+        print(render_baseline_report(impact), end="")
+    return 1 if newly_observed_ambient_dependencies(impact) else 0
 
 
 def _clean_wrapped_command(argv: list[str]) -> list[str]:

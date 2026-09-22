@@ -1,5 +1,5 @@
 from runnerlens.github import GitHubImageManifest
-from runnerlens.impact import compare_receipts, correlate_receipt_with_image
+from runnerlens.impact import compare_receipts, correlate_receipt_with_image, newly_observed_ambient_dependencies
 from runnerlens.models import Dependency, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.report import render_impact_report
 
@@ -64,3 +64,20 @@ def test_image_impact_preserves_unknown_metadata_as_unavailable() -> None:
         ("cmake", "version-changed"),
         ("custom-tool", "metadata-unavailable"),
     ]
+
+
+def test_new_ambient_dependencies_excludes_unknown_and_repository_tools() -> None:
+    baseline = _receipt([], "20260901.1")
+    target = _receipt(
+        [
+            Dependency("cmake", "/usr/bin/cmake", "runner-provided", "probable"),
+            Dependency("python", "/opt/hostedtoolcache/Python/bin/python", "tool-cache", "confirmed"),
+            Dependency("script", "/work/scripts/script", "repository-provided", "confirmed"),
+            Dependency("mystery", "/usr/bin/mystery", "unknown", "unknown"),
+        ],
+        "20260922.1",
+    )
+
+    changes = newly_observed_ambient_dependencies(compare_receipts(baseline, target))
+
+    assert [change.name for change in changes] == ["cmake", "python"]

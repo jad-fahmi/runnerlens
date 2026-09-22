@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from runnerlens.models import Receipt
-from runnerlens.impact import ImageImpact, ReceiptImpact
+from runnerlens.impact import ImageImpact, ReceiptImpact, newly_observed_ambient_dependencies
 
 
 def render_report(receipt: Receipt) -> str:
@@ -83,6 +83,20 @@ def render_impact_report(impact: ReceiptImpact) -> str:
             "Summary: " + ", ".join(f"{counts[status]} {status}" for status in counts),
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_baseline_report(impact: ReceiptImpact) -> str:
+    new_dependencies = newly_observed_ambient_dependencies(impact)
+    lines = ["RunnerLens baseline check", "========================", ""]
+    if not new_dependencies:
+        lines.append("No newly observed runner-provided or tool-cache dependencies.")
+    else:
+        lines.append("New ambient dependencies:")
+        for item in new_dependencies:
+            dependency = item.target
+            assert dependency is not None
+            lines.append(f"  {dependency.name} ({dependency.origin}, {dependency.path or 'unresolved'})")
     return "\n".join(lines) + "\n"
 
 
