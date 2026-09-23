@@ -110,8 +110,8 @@ jobs:
         run: runnerlens run --output live-podman-receipt.json -- podman --version
       - name: Correlate Podman with this runner's image inventory
         run: |
-          runnerlens impact live-podman-receipt.json \
-            --target-image-version "${ImageVersion}" > live-podman-impact.txt
+          runnerlens impact live-podman-receipt.json > live-podman-impact.txt
+          grep -F "Target release:  ubuntu24/${ImageVersion%.*}" live-podman-impact.txt
           grep -F "version-present      podman" live-podman-impact.txt
           grep -F "observed path:" live-podman-impact.txt
       - uses: actions/upload-artifact@v4
