@@ -25,6 +25,7 @@ TOOL_CACHE_MARKERS = (
 )
 
 WORKFLOW_PROVISIONED_PATHS_ENV = "RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"
+CONTAINERIZED_ENV = "RUNNERLENS_CONTAINERIZED"
 
 
 def classify_events(
@@ -67,6 +68,10 @@ def classify_event(
         origin = "tool-cache"
         confidence = "confirmed"
         evidence.append("path is inside hosted tool cache")
+    elif path and _is_containerized(env):
+        origin = "container-provided"
+        confidence = "confirmed"
+        evidence.append("container execution was explicitly declared")
     elif runner.provider == "github-actions" and path and _has_system_prefix(path):
         origin = "runner-provided"
         confidence = "probable"
@@ -108,6 +113,10 @@ def _is_workflow_provisioned(path: str, env: Mapping[str, str]) -> bool:
         if declared_path and _is_relative_to(Path(path), Path(declared_path)):
             return True
     return False
+
+
+def _is_containerized(env: Mapping[str, str]) -> bool:
+    return env.get(CONTAINERIZED_ENV, "").lower() in {"1", "true", "yes"}
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

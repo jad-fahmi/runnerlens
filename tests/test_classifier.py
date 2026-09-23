@@ -72,3 +72,16 @@ def test_declared_workflow_path_is_confirmed_workflow_provisioned(tmp_path: Path
     assert dependency.origin == "workflow-provisioned"
     assert dependency.confidence == "confirmed"
     assert "workflow-provisioned" in dependency.evidence[-1]
+
+
+def test_explicit_container_execution_classifies_external_tool(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="cmake", path="/usr/bin/cmake"),
+        RunnerInfo(provider="github-actions", os="Linux"),
+        tmp_path,
+        {"RUNNERLENS_CONTAINERIZED": "true"},
+    )
+
+    assert dependency.origin == "container-provided"
+    assert dependency.confidence == "confirmed"
+    assert "container execution" in dependency.evidence[-1]

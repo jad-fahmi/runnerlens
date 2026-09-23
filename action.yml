@@ -19,6 +19,10 @@ inputs:
     description: Optional colon-separated paths installed or configured by earlier workflow steps.
     required: false
     default: ""
+  container:
+    description: Set to true only when the wrapped command runs inside a workflow container.
+    required: false
+    default: "false"
 runs:
   using: composite
   steps:
@@ -32,6 +36,7 @@ runs:
         RUNNERLENS_OUTPUT: ${{ inputs.output }}
         RUNNERLENS_BASELINE: ${{ inputs.baseline }}
         RUNNERLENS_WORKFLOW_PROVISIONED_PATHS: ${{ inputs.workflow-provisioned-paths }}
+        RUNNERLENS_CONTAINERIZED: ${{ inputs.container }}
       run: |
         set +e
         runnerlens run --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
