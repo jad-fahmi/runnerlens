@@ -167,6 +167,10 @@ jobs:
       - name: Verify observed runner dependency
         run: >-
           python -c "import json; dependencies = json.load(open('public-go-uuid-receipt.json'))['dependencies']; go = next(item for item in dependencies if item['name'] == 'go'); assert go['origin'] == 'tool-cache'; assert go['version']"
+      - name: Diagnose Go receipt on failure
+        if: failure()
+        run: >-
+          python -c "import json; dependencies = json.load(open('public-go-uuid-receipt.json'))['dependencies']; go = next((item for item in dependencies if item['name'] == 'go'), None); print(f'::error title=RunnerLens Go receipt::{go}')"
       - uses: actions/upload-artifact@v4
         with:
           name: public-go-uuid-receipt
