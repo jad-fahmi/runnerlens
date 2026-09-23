@@ -31,6 +31,15 @@ def test_parse_strace_execve_decodes_escaped_paths() -> None:
     assert events[0].executable == "my tool"
 
 
+def test_parse_strace_execve_preserves_utf8_and_octal_path_bytes() -> None:
+    events = parse_strace_execve(
+        'execve("/work/café", [], 0x0) = 0\n'
+        'execve("/work/caf\\303\\251", [], 0x0) = 0\n'
+    )
+
+    assert [event.path for event in events] == ["/work/café", "/work/café"]
+
+
 def test_parse_strace_execve_keeps_relative_paths_unresolved() -> None:
     events = parse_strace_execve('execve("tools/build-tool", ["build-tool"], 0x0) = 0\n')
 
