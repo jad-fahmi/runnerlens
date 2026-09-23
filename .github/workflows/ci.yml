@@ -105,6 +105,17 @@ jobs:
         with:
           name: live-podman-receipt
           path: live-podman-receipt.json
+      - name: Observe Podman's OCI runtime process
+        run: |
+          runnerlens run --output podman-container-receipt.json -- \
+            podman run --rm docker.io/library/alpine@sha256:3c81aa9a3d770b316568f4499e30461a5cd3fbd7180bd89e28e34894c7845832 echo runnerlens
+      - name: Verify the runtime is recorded as an inherited dependency
+        run: >-
+          python -c "import json; receipt = json.load(open('podman-container-receipt.json')); runtime = next(item for item in receipt['dependencies'] if item['name'] in {'crun', 'runc'}); assert runtime['origin'] == 'runner-provided'; assert runtime['path'].startswith('/usr/'); assert runtime['version']; assert any(event['executable'] == runtime['name'] and event['path'] == runtime['path'] and event['observation'] == 'strace-execve' for event in receipt['events'])"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: podman-runtime-receipt
+          path: podman-container-receipt.json
       - name: Compare a real pinned Ubuntu runner-image update
         run: |
           runnerlens impact tests/fixtures/receipts/ubuntu24-cargo.json \
