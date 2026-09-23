@@ -374,6 +374,9 @@ The roadmap will be driven by real usage rather than feature count.
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, evidence rules,
+receipt compatibility guidance, and privacy requirements.
+
 RunnerLens is intended to support contributions in areas such as:
 
 * package provenance resolvers
@@ -385,8 +388,6 @@ RunnerLens is intended to support contributions in areas such as:
 * report formats
 
 Large architectural changes should begin with an issue or discussion.
-
-A full `CONTRIBUTING.md` will be added as the architecture stabilizes.
 
 ---
 
