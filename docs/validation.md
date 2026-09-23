@@ -10,7 +10,7 @@ each one is expected to provide.
 | --- | --- | --- | --- |
 | [fmtlib/fmt](https://github.com/fmtlib/fmt) | `40626af88bd7df9a5fb80be7b25ac85b122d6c21` (`11.2.0`) | CMake configure and Ninja build | `cmake`, `ninja`, C++ compiler |
 | [BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep) | `0e8390a66fbcf6eeac1aeb0541b367663a597c79` (`14.1.1`) | `cargo build --locked` | `cargo` |
-| [google/go-cmp](https://github.com/google/go-cmp) | `c3ad8435e7bef96af35732bc0789e5a2278c6d5f` (`v0.6.0`) | `go test ./...` | `go` |
+| [google/uuid](https://github.com/google/uuid) | `0f11ee6918f41a04c201eceeadf612a377bc7fbc` (`v1.6.0`) | `go test ./...` | `go` |
 
 The `public-repository-validation` CI job runs this case on GitHub-hosted
 Ubuntu. It keeps the checked-out revision and build command explicit so the

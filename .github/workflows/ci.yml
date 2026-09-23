@@ -156,18 +156,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch a pinned public Go project
         run: |
-          git clone --no-checkout https://github.com/google/go-cmp.git go-cmp-fixture
-          git -C go-cmp-fixture checkout c3ad8435e7bef96af35732bc0789e5a2278c6d5f
+          git clone --no-checkout https://github.com/google/uuid.git go-uuid-fixture
+          git -C go-uuid-fixture checkout 0f11ee6918f41a04c201eceeadf612a377bc7fbc
       - uses: ./
         with:
           command: |
-            cd go-cmp-fixture
+            cd go-uuid-fixture
             go test ./...
-          output: public-go-cmp-receipt.json
+          output: public-go-uuid-receipt.json
       - name: Verify observed runner dependency
         run: >-
-          python -c "import json; dependencies = json.load(open('public-go-cmp-receipt.json'))['dependencies']; go = next(item for item in dependencies if item['name'] == 'go'); assert go['origin'] == 'tool-cache'; assert go['version']"
+          python -c "import json; dependencies = json.load(open('public-go-uuid-receipt.json'))['dependencies']; go = next(item for item in dependencies if item['name'] == 'go'); assert go['origin'] == 'tool-cache'; assert go['version']"
       - uses: actions/upload-artifact@v4
         with:
-          name: public-go-cmp-receipt
-          path: public-go-cmp-receipt.json
+          name: public-go-uuid-receipt
+          path: public-go-uuid-receipt.json
