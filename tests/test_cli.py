@@ -50,6 +50,17 @@ def test_show_command_reports_missing_receipt(capsys) -> None:
     assert "could not read receipt" in captured.err
 
 
+def test_show_command_rejects_an_unsupported_schema(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "unsupported.json"
+    receipt_path.write_text('{"schema_version": "99.0.0"}', encoding="utf-8")
+
+    exit_code = main(["show", str(receipt_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "unsupported receipt schema" in captured.err
+
+
 def test_compare_command_renders_receipt_impact(tmp_path: Path, capsys) -> None:
     baseline_path = tmp_path / "baseline.json"
     target_path = tmp_path / "target.json"

@@ -2,7 +2,9 @@ from pathlib import Path
 
 from runnerlens.models import ExecutionEvent, ObservedCommand
 from runnerlens.observer import Observation
-from runnerlens.receipt import build_receipt
+import pytest
+
+from runnerlens.receipt import build_receipt, receipt_from_dict
 
 
 def test_build_receipt_uses_schema_and_dependencies(tmp_path: Path, monkeypatch) -> None:
@@ -26,3 +28,8 @@ def test_build_receipt_uses_schema_and_dependencies(tmp_path: Path, monkeypatch)
     assert data["runner"]["provider"] == "github-actions"
     assert data["runner"]["image"] == "ubuntu24"
     assert data["dependencies"][0]["origin"] == "runner-provided"
+
+
+def test_receipt_from_dict_rejects_an_unknown_schema_version() -> None:
+    with pytest.raises(ValueError, match="unsupported receipt schema"):
+        receipt_from_dict({"schema_version": "99.0.0"})

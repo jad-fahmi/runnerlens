@@ -2,6 +2,10 @@
 
 The receipt schema is experimental and versioned as `0.1.0`.
 
+RunnerLens 0.1 rejects receipts with another schema version instead of attempting
+to interpret them. This is deliberate: callers should make compatibility an
+explicit decision as the schema evolves.
+
 Example:
 
 ```json
