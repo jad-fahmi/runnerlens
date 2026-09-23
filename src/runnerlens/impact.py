@@ -150,10 +150,10 @@ def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
 def observation_coverage(receipt: Receipt) -> str:
     """Classify receipt coverage from its recorded observation methods."""
     methods = {event.observation for event in receipt.events}
+    if methods & {"strace-execve-unresolved", "strace-execveat-unresolved"}:
+        return "partial"
     if methods and methods <= {"strace-execve", "strace-execveat"}:
         return "process-tree"
-    if "strace-execveat-unresolved" in methods:
-        return "partial"
     if methods and methods <= {
         "subprocess-root",
         "subprocess-root-fallback",

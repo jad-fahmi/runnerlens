@@ -31,6 +31,15 @@ def test_parse_strace_execve_decodes_escaped_paths() -> None:
     assert events[0].executable == "my tool"
 
 
+def test_parse_strace_execve_keeps_relative_paths_unresolved() -> None:
+    events = parse_strace_execve('execve("tools/build-tool", ["build-tool"], 0x0) = 0\n')
+
+    assert len(events) == 1
+    assert events[0].executable == "build-tool"
+    assert events[0].path is None
+    assert events[0].observation == "strace-execve-unresolved"
+
+
 def test_parse_strace_execveat_keeps_absolute_executable_paths() -> None:
     trace = '''getpid() = 42
 clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID) = 43

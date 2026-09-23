@@ -258,9 +258,19 @@ def test_observation_coverage_distinguishes_resolved_and_unresolved_execveat() -
         ended_at=receipt.ended_at,
         exit_code=0,
     )
+    unresolved_execve = Receipt(
+        runner=receipt.runner,
+        command=receipt.command,
+        dependencies=[],
+        events=[ExecutionEvent("build-tool", None, observation="strace-execve-unresolved")],
+        started_at=receipt.started_at,
+        ended_at=receipt.ended_at,
+        exit_code=0,
+    )
 
     assert observation_coverage(resolved) == "process-tree"
     assert observation_coverage(unresolved) == "partial"
+    assert observation_coverage(unresolved_execve) == "partial"
 
 
 def test_compare_runner_images_uses_apt_metadata_for_package_owned_dependencies() -> None:
