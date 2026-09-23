@@ -38,6 +38,25 @@ The same job reads the retained Ubuntu 22 release `20220515.1`, whose inventory
 uses the legacy `images/linux/Ubuntu2204-Readme.md` location. This keeps
 historical inventory lookup covered without inferring a missing release tag.
 
+The job also replays the Podman change in the public [runner-images issue
+#14604](https://github.com/actions/runner-images/issues/14604). That report
+compares the same Uyuni container-test step from immutable revision
+`318fb5dd4a7062089d4f02bbe2a3887b0624b898` across GitHub-hosted Ubuntu 24
+images: `20260720.247.2` completed in about 96 to 107 seconds, while
+`20260810.271.1` took about 21,500 seconds and timed out. The issue attributes
+the regression to the Podman 4.9.3 to 5.8.4 bundle change, and links the
+[Uyuni workflow run](https://github.com/uyuni-project/uyuni/actions/runs/31541429355)
+that landed jobs on both image revisions. The job corresponds to Uyuni's
+`Acceptance / tests` container workflow; it is not a small, single-command
+reproducer that RunnerLens can currently rerun in this project's public CI.
+
+`ubuntu24-podman-issue-14604.json` is a historical reconstruction from the
+issue's reported Podman version and path, not a RunnerLens-captured receipt.
+The replay verifies that image impact narrows the published inventory delta to
+the observed Podman dependency. It does not claim to reproduce or diagnose the
+hang, and the incident's detailed `crun` interaction is not fully represented
+in the published image inventory.
+
 ## Next Cases
 
 Add public repositories from different build ecosystems and historical
