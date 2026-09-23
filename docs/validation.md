@@ -12,9 +12,9 @@ each one is expected to provide.
 | [BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep) | `0e8390a66fbcf6eeac1aeb0541b367663a597c79` (`14.1.1`) | `cargo build --locked` | `cargo` |
 | [google/uuid](https://github.com/google/uuid) | `0f11ee6918f41a04c201eceeadf612a377bc7fbc` (`v1.6.0`) | `go test ./...` | `go` |
 
-The `public-repository-validation` CI job runs this case on GitHub-hosted
-Ubuntu. It keeps the checked-out revision and build command explicit so the
-receipt is repeatable and the result can be compared as RunnerLens evolves.
+The public-repository CI jobs run these cases on GitHub-hosted Ubuntu. They
+keep each checked-out revision and build command explicit so receipts are
+repeatable and results can be compared as RunnerLens evolves.
 
 The `public-rust-validation` CI job exercises a second ecosystem using the
 preinstalled Cargo path on the GitHub-hosted image. It verifies that the
@@ -23,7 +23,10 @@ base-image path as `runner-provided` with probable confidence.
 
 The `public-go-validation` CI job validates the GitHub-hosted Go tool cache on
 a pinned public module. It verifies that the observed `go` executable has a
-recorded version and is classified as `tool-cache`.
+recorded version and is classified as `tool-cache`. It then correlates the
+receipt with the pinned Ubuntu 24 image release `20260920.314.1`, verifying
+that Go is present in the release's Cached Tools inventory even though the
+observed executable path is `/usr/bin/go`.
 
 ## Runner-Image Cases
 
