@@ -24,6 +24,8 @@ TOOL_CACHE_MARKERS = (
     "/hostedtoolcache/",
 )
 
+WORKFLOW_PROVISIONED_PATHS_ENV = "RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"
+
 
 def classify_events(
     events: list[ExecutionEvent],
@@ -57,6 +59,10 @@ def classify_event(
         origin = "repository-provided"
         confidence = "confirmed"
         evidence.append("path is inside repository root")
+    elif path and _is_workflow_provisioned(path, env):
+        origin = "workflow-provisioned"
+        confidence = "confirmed"
+        evidence.append("path was declared as workflow-provisioned")
     elif path and _is_tool_cache(path, env):
         origin = "tool-cache"
         confidence = "confirmed"
@@ -94,6 +100,14 @@ def _is_tool_cache(path: str, env: Mapping[str, str]) -> bool:
         return True
     tool_dir = env.get("AGENT_TOOLSDIRECTORY") or env.get("RUNNER_TOOL_CACHE")
     return bool(tool_dir and _is_relative_to(Path(path), Path(tool_dir)))
+
+
+def _is_workflow_provisioned(path: str, env: Mapping[str, str]) -> bool:
+    declared_paths = env.get(WORKFLOW_PROVISIONED_PATHS_ENV, "")
+    for declared_path in declared_paths.split(os.pathsep):
+        if declared_path and _is_relative_to(Path(path), Path(declared_path)):
+            return True
+    return False
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

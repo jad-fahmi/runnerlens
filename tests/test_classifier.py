@@ -54,3 +54,21 @@ def test_tool_cache_path_is_confirmed_tool_cache(tmp_path: Path) -> None:
 
     assert dependency.origin == "tool-cache"
     assert dependency.confidence == "confirmed"
+
+
+def test_declared_workflow_path_is_confirmed_workflow_provisioned(tmp_path: Path) -> None:
+    provisioned_root = tmp_path / "workflow-tools"
+    tool = provisioned_root / "bin" / "cmake"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("", encoding="utf-8")
+
+    dependency = classify_event(
+        ExecutionEvent(executable="cmake", path=str(tool)),
+        RunnerInfo(provider="github-actions", os="Linux"),
+        tmp_path / "repository",
+        {"RUNNERLENS_WORKFLOW_PROVISIONED_PATHS": str(provisioned_root)},
+    )
+
+    assert dependency.origin == "workflow-provisioned"
+    assert dependency.confidence == "confirmed"
+    assert "workflow-provisioned" in dependency.evidence[-1]

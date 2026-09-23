@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from runnerlens.classifier import classify_events
@@ -13,9 +15,12 @@ from runnerlens.resolver import enrich_dependencies
 from runnerlens.runner import detect_runner
 
 
-def build_receipt(observation: Observation, repository_root: Path) -> Receipt:
-    runner = detect_runner()
-    dependencies = enrich_dependencies(classify_events(observation.events, runner, repository_root))
+def build_receipt(
+    observation: Observation, repository_root: Path, env: Mapping[str, str] | None = None
+) -> Receipt:
+    data = env if env is not None else os.environ
+    runner = detect_runner(data)
+    dependencies = enrich_dependencies(classify_events(observation.events, runner, repository_root, data))
 
     return Receipt(
         runner=runner,
