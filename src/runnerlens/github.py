@@ -10,6 +10,9 @@ from urllib.request import Request, urlopen
 
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
 _IMAGE_RE = re.compile(r"^ubuntu-?(?P<major>\d{2})(?:\.04)?$")
+_COMPILER_EXECUTABLE_RE = re.compile(
+    r"^(?P<name>cc|c\+\+|gcc|g\+\+|clang|clang\+\+)(?:-\d+(?:\.\d+)*)?$"
+)
 
 
 @dataclass(frozen=True)
@@ -112,10 +115,22 @@ def manifest_versions(manifest: GitHubImageManifest, executable: str) -> tuple[s
         "ruby": ("ruby",),
         "go": ("go",),
     }
-    for candidate in aliases.get(normalized, (normalized,)):
+    for candidate in _manifest_candidates(executable, normalized, aliases):
         if candidate in manifest.tools:
             return manifest.tools[candidate]
     return None
+
+
+def _manifest_candidates(
+    executable: str, normalized: str, aliases: dict[str, tuple[str, ...]]
+) -> tuple[str, ...]:
+    compiler_match = _COMPILER_EXECUTABLE_RE.match(executable.lower())
+    if compiler_match:
+        compiler = compiler_match.group("name")
+        if compiler.startswith("clang"):
+            return ("clang",)
+        return ("gnuc", "gcc")
+    return aliases.get(normalized, (normalized,))
 
 
 def _normalize_tool_name(name: str) -> str:

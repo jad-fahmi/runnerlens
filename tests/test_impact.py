@@ -108,3 +108,24 @@ def test_compare_runner_images_filters_changes_to_observed_dependencies() -> Non
         ("ninja", "removed"),
         ("unknown-tool", "metadata-unavailable"),
     ]
+
+
+def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> None:
+    receipt = _receipt(
+        [Dependency("g++-14", "/usr/bin/g++-14", "runner-provided", "probable")],
+        "20260901.1",
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260901.1", source_url="https://example.test/baseline",
+        tools={"gnuc": ("13.3.0",)},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260922.1", source_url="https://example.test/target",
+        tools={"gnuc": ("14.2.0",)},
+    )
+
+    impact = compare_runner_images(receipt, baseline, target)
+
+    assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
+        ("g++-14", "changed"),
+    ]
