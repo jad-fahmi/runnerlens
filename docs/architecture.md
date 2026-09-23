@@ -58,6 +58,12 @@ inventory from `actions/runner-images`, normalizes its documented tool versions,
 and correlates only the tools that the receipt observed. A missing metadata match
 is reported as `metadata-unavailable`, never as a removed tool.
 
+When `--baseline-image-version` is supplied, the impact engine compares the two
+release inventories directly. It reports a tool as removed only when the
+baseline inventory documents that observed tool and the target inventory does
+not. This preserves the distinction between a documented removal and an
+unrecognized metadata name.
+
 ## GitHub Action
 
 The composite `action.yml` installs RunnerLens from the checked-out action,
