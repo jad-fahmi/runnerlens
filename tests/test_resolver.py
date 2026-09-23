@@ -2,6 +2,7 @@ from pathlib import Path
 from subprocess import CompletedProcess
 
 from runnerlens import resolver
+from runnerlens.models import Dependency
 
 
 def test_detect_version_returns_a_parsed_version(tmp_path: Path, monkeypatch) -> None:
@@ -38,3 +39,22 @@ def test_find_package_owner_parses_multiarch_package_name(tmp_path: Path, monkey
     )
 
     assert resolver.find_package_owner(str(executable)) == "libexample1:amd64"
+
+
+def test_enrichment_does_not_execute_repository_provided_tools(monkeypatch) -> None:
+    monkeypatch.setattr(resolver.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        resolver.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("tool must not be executed")),
+    )
+    dependency = Dependency(
+        name="project-tool",
+        path="/work/repository/project-tool",
+        origin="repository-provided",
+        confidence="confirmed",
+    )
+
+    result = resolver.enrich_dependencies([dependency])
+
+    assert result == [dependency]
