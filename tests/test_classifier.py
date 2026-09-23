@@ -122,3 +122,15 @@ def test_explicit_container_execution_classifies_external_tool(tmp_path: Path) -
     assert dependency.origin == "container-provided"
     assert dependency.confidence == "confirmed"
     assert "container execution" in dependency.evidence[-1]
+
+
+def test_explicit_container_boundary_overrides_tool_cache_path(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="python", path="/opt/hostedtoolcache/Python/3.13/bin/python"),
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
+        tmp_path,
+        {"RUNNERLENS_CONTAINERIZED": "true"},
+    )
+
+    assert dependency.origin == "container-provided"
+    assert dependency.confidence == "confirmed"
