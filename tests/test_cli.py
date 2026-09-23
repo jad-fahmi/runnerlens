@@ -83,6 +83,55 @@ def test_show_command_rejects_an_unsupported_schema(tmp_path: Path, capsys) -> N
     assert "unsupported receipt schema" in captured.err
 
 
+def test_show_json_rejects_an_unsupported_schema(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "unsupported.json"
+    receipt_path.write_text('{"schema_version": "99.0.0"}', encoding="utf-8")
+
+    exit_code = main(["show", str(receipt_path), "--json"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "unsupported receipt schema" in captured.err
+
+
+def test_show_json_outputs_normalized_receipt(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0",
+                "started_at": "2026-09-21T00:00:00+00:00",
+                "ended_at": "2026-09-21T00:00:01+00:00",
+                "exit_code": 0,
+                "runner": {"provider": "github-actions", "os": None},
+                "command": {"executable": "cmake", "arguments_recorded": False},
+                "dependencies": [],
+                "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["show", str(receipt_path), "--json"])
+
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert exit_code == 0
+    assert output["schema_version"] == "0.1.0"
+    assert "os" not in output["runner"]
+
+
+def test_show_json_reports_malformed_receipt(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "malformed.json"
+    receipt_path.write_text('{"schema_version": "0.1.0"}', encoding="utf-8")
+
+    exit_code = main(["show", str(receipt_path), "--json"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "could not render receipt" in captured.err
+
+
 def test_compare_command_renders_receipt_impact(tmp_path: Path, capsys) -> None:
     baseline_path = tmp_path / "baseline.json"
     target_path = tmp_path / "target.json"
