@@ -54,3 +54,18 @@ jobs:
           output: runnerlens-failed-command-receipt.json
       - name: Verify failed-command receipt
         run: python -c "import json; assert json.load(open('runnerlens-failed-command-receipt.json'))['exit_code'] == 7"
+
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        run: python -m pip wheel --no-deps --wheel-dir wheelhouse .
+      - name: Verify installed wheel CLI
+        run: |
+          python -m venv install-test
+          install-test/bin/python -m pip install --no-deps wheelhouse/*.whl
+          install-test/bin/runnerlens version
