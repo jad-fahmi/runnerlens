@@ -103,6 +103,12 @@ baseline inventory documents that observed tool and the target inventory does
 not. This preserves the distinction between a documented removal and an
 unrecognized metadata name.
 
+Receipt comparisons carry observation coverage into human and JSON output.
+`runnerlens check` returns an inconclusive exit status unless both receipts
+contain process-tree observations. Image impact remains available for partial
+receipts but marks the coverage and warns that unobserved child dependencies
+are not represented.
+
 ## GitHub Action
 
 The composite `action.yml` installs RunnerLens from the checked-out action,

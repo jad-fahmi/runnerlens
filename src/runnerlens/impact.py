@@ -33,11 +33,17 @@ class ReceiptImpact:
     baseline_runner: RunnerInfo
     target_runner: RunnerInfo
     dependencies: list[DependencyImpact]
+    baseline_coverage: str = "unknown"
+    target_coverage: str = "unknown"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "baseline_runner": self.baseline_runner.to_dict(),
             "target_runner": self.target_runner.to_dict(),
+            "observation_coverage": {
+                "baseline": self.baseline_coverage,
+                "target": self.target_coverage,
+            },
             "dependencies": [dependency.to_dict() for dependency in self.dependencies],
         }
 
@@ -62,12 +68,14 @@ class ImageImpact:
     target_release: str
     source_url: str
     dependencies: list[ImageDependencyImpact]
+    observation_coverage: str = "unknown"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "observed_runner": self.observed_runner.to_dict(),
             "target_release": self.target_release,
             "source_url": self.source_url,
+            "observation_coverage": self.observation_coverage,
             "dependencies": [dependency.to_dict() for dependency in self.dependencies],
         }
 
@@ -96,6 +104,7 @@ class RunnerImageImpact:
     target_release: str
     target_source_url: str
     dependencies: list[RunnerImageDependencyImpact]
+    observation_coverage: str = "unknown"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -104,6 +113,7 @@ class RunnerImageImpact:
             "baseline_source_url": self.baseline_source_url,
             "target_release": self.target_release,
             "target_source_url": self.target_source_url,
+            "observation_coverage": self.observation_coverage,
             "dependencies": [dependency.to_dict() for dependency in self.dependencies],
         }
 
@@ -132,7 +142,25 @@ def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
         baseline_runner=baseline.runner,
         target_runner=target.runner,
         dependencies=impacts,
+        baseline_coverage=observation_coverage(baseline),
+        target_coverage=observation_coverage(target),
     )
+
+
+def observation_coverage(receipt: Receipt) -> str:
+    """Classify receipt coverage from its recorded observation methods."""
+    methods = {event.observation for event in receipt.events}
+    if methods and methods == {"strace-execve"}:
+        return "process-tree"
+    if methods and methods <= {
+        "subprocess-root",
+        "subprocess-root-fallback",
+        "subprocess-root-only",
+    }:
+        return "root-only"
+    if "strace-execve" in methods:
+        return "mixed"
+    return "unknown"
 
 
 def newly_observed_ambient_dependencies(impact: ReceiptImpact) -> list[DependencyImpact]:
@@ -177,6 +205,7 @@ def correlate_receipt_with_image(receipt: Receipt, manifest: GitHubImageManifest
         target_release=manifest.release,
         source_url=manifest.source_url,
         dependencies=dependencies,
+        observation_coverage=observation_coverage(receipt),
     )
 
 
@@ -225,6 +254,7 @@ def compare_runner_images(
         target_release=target.release,
         target_source_url=target.source_url,
         dependencies=dependencies,
+        observation_coverage=observation_coverage(receipt),
     )
 
 

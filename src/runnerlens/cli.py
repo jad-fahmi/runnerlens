@@ -229,6 +229,8 @@ def check_command(args: argparse.Namespace) -> int:
         print(to_json(impact.to_dict()), end="")
     else:
         print(render_baseline_report(impact), end="")
+    if impact.baseline_coverage != "process-tree" or impact.target_coverage != "process-tree":
+        return 2
     return 1 if newly_observed_ambient_dependencies(impact) else 0
 
 
