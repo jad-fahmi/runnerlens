@@ -33,7 +33,7 @@ Example:
       "confidence": "probable",
       "evidence": [
         "observed via subprocess-root",
-        "system path on GitHub-hosted runner"
+        "documented base-image path on GitHub-hosted runner"
       ]
     }
   ],

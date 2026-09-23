@@ -4,6 +4,7 @@ from runnerlens.github import (
     GitHubImageManifest,
     fetch_ubuntu_manifest,
     manifest_versions,
+    parse_ubuntu_cached_tools,
     parse_ubuntu_software_report,
     release_tag,
 )
@@ -56,6 +57,31 @@ def test_parse_ubuntu_report_and_lookup_executable_aliases() -> None:
     assert manifest_versions(manifest, "g++-13") == ("13.3.0", "14.2.0")
     assert manifest_versions(manifest, "clang++-19") == ("18.1.8", "19.1.7")
     assert manifest_versions(manifest, "node") == ("22.14.0",)
+
+
+def test_parse_cached_tools_and_match_tool_cache_executable() -> None:
+    manifest = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260907.131",
+        source_url="https://example.test/report",
+        tools={"python": ("3.12.3",)},
+        cached_tools=parse_ubuntu_cached_tools(
+            """### Cached Tools
+#### Python
+- 3.11.16
+- 3.12.14
+### PowerShell Tools
+- PowerShell 7.6.5
+"""
+        ),
+    )
+
+    assert manifest.cached_tools == {"python": ("3.11.16", "3.12.14")}
+    assert manifest_versions(manifest, "python", "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python") == (
+        "3.11.16",
+        "3.12.14",
+    )
+    assert manifest_versions(manifest, "python", "/usr/bin/python3") == ("3.12.3",)
 
 
 def test_fetch_ubuntu_manifest_uses_legacy_linux_path_when_needed(monkeypatch) -> None:

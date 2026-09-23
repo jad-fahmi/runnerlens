@@ -72,8 +72,10 @@ caused by the runner image: it preserves both receipts as the underlying evidenc
 
 For GitHub-hosted Ubuntu receipts, `runnerlens impact` fetches the exact release
 inventory from `actions/runner-images`, normalizes its documented tool versions,
-and correlates only the tools that the receipt observed. A missing metadata match
-is reported as `metadata-unavailable`, never as a removed tool.
+and correlates only observed `runner-provided` and `tool-cache` dependencies.
+For tool-cache paths, it reads the inventory's separate Cached Tools section
+rather than confusing those versions with a system tool. A missing metadata
+match is reported as `metadata-unavailable`, never as a removed tool.
 
 The provider supports the current Ubuntu inventory path and the two documented
 legacy Linux inventory paths used by retained Ubuntu runner-image releases.
