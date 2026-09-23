@@ -131,7 +131,7 @@ def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> N
 
 def test_compare_runner_images_uses_cached_tool_metadata_for_tool_cache_paths() -> None:
     receipt = _receipt(
-        [Dependency("python", "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python", "tool-cache", "confirmed")],
+        [Dependency("python", "/usr/bin/python", "tool-cache", "confirmed")],
         "20260901.1",
     )
     baseline = GitHubImageManifest(
