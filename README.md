@@ -106,8 +106,11 @@ that no child dependencies were added.
 Check observed tools against a specific GitHub Ubuntu runner-image release:
 
 ```text
-runnerlens impact runnerlens-receipt.json --target-image-version 20260907.131.1
+runnerlens impact runnerlens-receipt.json
 ```
+
+When available, `runnerlens impact` uses the image version recorded in the
+receipt. Pass `--target-image-version` to inspect another image release.
 
 Image impact reports include observation coverage and warn when child-process
 dependencies may be missing.
