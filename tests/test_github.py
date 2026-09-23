@@ -89,6 +89,17 @@ def test_parse_cached_tools_and_match_tool_cache_executable() -> None:
     )
 
 
+def test_tool_cache_does_not_fall_back_to_base_image_inventory() -> None:
+    manifest = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260907.131",
+        source_url="https://example.test/report",
+        tools={"go": ("1.26.5",)},
+    )
+
+    assert manifest_versions(manifest, "go", "/usr/bin/go", "tool-cache") is None
+
+
 def test_parse_apt_packages_and_match_multiarch_package_owner() -> None:
     markdown = """### Installed apt packages
 | Name | Version |
