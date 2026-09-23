@@ -127,4 +127,6 @@ For example, `/usr/bin/cmake` on a GitHub-hosted runner is probably
 runner-provided, but an earlier workflow step might have intentionally installed
 or replaced it. A self-hosted or otherwise unproven GitHub Actions runner stays
 `unknown`. The classifier should preserve that uncertainty unless stronger
-evidence exists.
+evidence exists. Relative execution paths also stay unresolved because a traced
+child may have changed its working directory, which RunnerLens does not currently
+track.
