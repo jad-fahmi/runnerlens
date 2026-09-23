@@ -1,5 +1,11 @@
 from runnerlens.github import GitHubImageManifest
-from runnerlens.impact import compare_receipts, compare_runner_images, correlate_receipt_with_image, newly_observed_ambient_dependencies
+from runnerlens.impact import (
+    compare_receipts,
+    compare_runner_images,
+    correlate_receipt_with_image,
+    newly_observed_ambient_dependencies,
+    observation_coverage,
+)
 from runnerlens.models import Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
 from runnerlens.report import (
     render_image_impact_report,
@@ -230,6 +236,31 @@ def test_image_impacts_preserve_and_warn_about_root_only_coverage() -> None:
     assert comparison.observation_coverage == "root-only"
     assert comparison.to_dict()["observation_coverage"] == "root-only"
     assert "unobserved child dependencies are not represented" in render_runner_image_impact_report(comparison)
+
+
+def test_observation_coverage_distinguishes_resolved_and_unresolved_execveat() -> None:
+    receipt = _receipt([], "20260907.300.1")
+    resolved = Receipt(
+        runner=receipt.runner,
+        command=receipt.command,
+        dependencies=[],
+        events=[ExecutionEvent("custom-tool", "/usr/local/bin/custom-tool", observation="strace-execveat")],
+        started_at=receipt.started_at,
+        ended_at=receipt.ended_at,
+        exit_code=0,
+    )
+    unresolved = Receipt(
+        runner=receipt.runner,
+        command=receipt.command,
+        dependencies=[],
+        events=[ExecutionEvent("unknown-executable", None, observation="strace-execveat-unresolved")],
+        started_at=receipt.started_at,
+        ended_at=receipt.ended_at,
+        exit_code=0,
+    )
+
+    assert observation_coverage(resolved) == "process-tree"
+    assert observation_coverage(unresolved) == "partial"
 
 
 def test_compare_runner_images_uses_apt_metadata_for_package_owned_dependencies() -> None:

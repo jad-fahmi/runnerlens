@@ -31,6 +31,34 @@ def test_parse_strace_execve_decodes_escaped_paths() -> None:
     assert events[0].executable == "my tool"
 
 
+def test_parse_strace_execveat_keeps_absolute_executable_paths() -> None:
+    trace = '''getpid() = 42
+clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID) = 43
+[pid 43] execveat(AT_FDCWD, "/usr/local/bin/custom-tool", ["custom-tool"], 0x0, 0) = 0
+'''
+
+    events = parse_strace_execve(trace)
+
+    assert len(events) == 1
+    assert events[0].executable == "custom-tool"
+    assert events[0].path == "/usr/local/bin/custom-tool"
+    assert events[0].parent_pid == 42
+    assert events[0].observation == "strace-execveat"
+
+
+def test_parse_strace_execveat_does_not_invent_paths_for_relative_or_fd_paths() -> None:
+    events = parse_strace_execve(
+        '''execveat(AT_FDCWD, "bin/tool", ["tool"], 0x0, 0) = 0
+execveat(3, "", ["fd-tool"], 0x0, AT_EMPTY_PATH) = 0
+'''
+    )
+
+    assert [(event.executable, event.path, event.observation) for event in events] == [
+        ("tool", None, "strace-execveat-unresolved"),
+        ("unknown-executable", None, "strace-execveat-unresolved"),
+    ]
+
+
 def test_parse_strace_execve_keeps_unknown_or_out_of_order_lineage_unset() -> None:
     trace = '''[pid 43] execve("/usr/bin/cmake", ["cmake"], 0x0) = 0
 [pid 42] fork() = 43

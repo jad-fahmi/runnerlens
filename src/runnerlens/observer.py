@@ -33,6 +33,10 @@ class Observation:
 _EXECVE_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?execve\(\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
 )
+_EXECVEAT_RE = re.compile(
+    r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?"
+    r"execveat\([^,]+,\s*\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
+)
 _PROCESS_CREATE_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<parent_pid>\d+)\]?\s+)?"
     r"(?:clone|clone3|fork|vfork)\(.*\)\s+=\s+(?P<child_pid>\d+)$"
@@ -107,7 +111,7 @@ def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[Execut
                 "-f",
                 "-qq",
                 "-e",
-                "trace=execve,clone,clone3,fork,vfork,getpid",
+                "trace=execve,execveat,clone,clone3,fork,vfork,getpid",
                 "-s",
                 "0",
                 "-o",
@@ -150,17 +154,27 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
             continue
 
         match = _EXECVE_RE.match(line)
+        observation = "strace-execve"
+        if not match:
+            match = _EXECVEAT_RE.match(line)
+            observation = "strace-execveat"
         if not match:
             continue
         path = bytes(match.group("path"), "utf-8").decode("unicode_escape")
         pid = int(match.group("pid")) if match.group("pid") else None
+        if observation == "strace-execveat" and not path.startswith("/"):
+            executable = Path(path).name if path else "unknown-executable"
+            path = None
+            observation = "strace-execveat-unresolved"
+        else:
+            executable = Path(path).name
         events.append(
             ExecutionEvent(
-                executable=Path(path).name,
+                executable=executable,
                 path=path,
                 pid=pid,
                 parent_pid=parents.get(pid) if pid is not None else None,
-                observation="strace-execve",
+                observation=observation,
             )
         )
     return events

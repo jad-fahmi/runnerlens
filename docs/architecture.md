@@ -38,9 +38,12 @@ The current scaffold implements the first narrow slice:
 - `runnerlens.receipt`: receipt construction and JSON serialization
 - `runnerlens.report`: human-readable receipt report
 
-On Linux with `strace` available, the observer records successful `execve` calls
-from the wrapped command's process tree. Elsewhere, it records only the wrapped
-root command and labels that lower-coverage observation method in the receipt.
+On Linux with `strace` available, the observer records successful `execve` and
+identifiable `execveat` calls from the wrapped command's process tree. Paths
+passed relative to directory descriptors or through `AT_EMPTY_PATH` are kept
+as unresolved events and mark coverage partial rather than guessed. Elsewhere,
+it records only the wrapped root command and labels that lower-coverage
+observation method in the receipt.
 If `strace` completes without any parseable execution events, RunnerLens also
 retains the root command with a `subprocess-root-fallback` observation label.
 Ptrace changes setuid and setgid execution: by default, traced privileged
