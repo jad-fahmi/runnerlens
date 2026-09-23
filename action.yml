@@ -11,6 +11,10 @@ inputs:
     description: Path for the Runner Dependency Receipt JSON file.
     required: false
     default: runnerlens-receipt.json
+  baseline:
+    description: Optional accepted receipt to check for newly introduced ambient dependencies.
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -22,9 +26,17 @@ runs:
       env:
         RUNNERLENS_COMMAND: ${{ inputs.command }}
         RUNNERLENS_OUTPUT: ${{ inputs.output }}
+        RUNNERLENS_BASELINE: ${{ inputs.baseline }}
       run: |
         set +e
         runnerlens run --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
         exit_code=$?
         runnerlens show "$RUNNERLENS_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+        if [ -n "$RUNNERLENS_BASELINE" ]; then
+          runnerlens check "$RUNNERLENS_BASELINE" "$RUNNERLENS_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+          baseline_exit_code=$?
+          if [ "$exit_code" -eq 0 ]; then
+            exit_code=$baseline_exit_code
+          fi
+        fi
         exit "$exit_code"

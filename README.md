@@ -81,11 +81,15 @@ Use the composite action after checkout and any intentional provisioning steps:
 - uses: jad-fahmi/runnerlens@main
   with:
     command: python -m pytest
+    baseline: .runnerlens/accepted-receipt.json
 ```
 
 The action writes `runnerlens-receipt.json` and publishes the human-readable
 receipt to the job summary. To retain the JSON receipt between runs, upload it
 with `actions/upload-artifact` or commit it as a reviewed baseline.
+When `baseline` is set, a successful build fails if it introduces a new
+runner-provided or tool-cache dependency. A failing wrapped build retains its
+own exit status regardless of the baseline result.
 
 Example output:
 
