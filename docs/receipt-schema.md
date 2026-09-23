@@ -48,6 +48,12 @@ Example:
 }
 ```
 
+`started_at` and `ended_at` use timezone-aware ISO 8601 timestamps, and the
+ending timestamp must not precede the start.
+`exit_code` preserves the subprocess return code; a negative value means the
+process ended from a signal. The CLI maps that value to the shell status
+`128 + signal`.
+
 Events preserve raw execution evidence. `role` is `build-tool` by default and
 is `launcher` for a wrapper such as the composite GitHub Action shell. The
 default dependency list excludes launcher events and routine shell utilities to
@@ -56,6 +62,13 @@ include them in dependency output.
 
 Unresolved executable paths are serialized as `null` in dependency and event
 records so the receipt can be loaded without inventing a path.
+Non-null command, dependency, and event paths must be absolute POSIX or Windows
+paths; relative paths are treated as unresolved.
+Dependency records are unique by executable name and path. Two records with
+the same identity are rejected rather than silently choosing one provenance or
+version value.
+Event process IDs are positive integers when present; missing or unknown IDs
+are represented as `null`.
 
 ## Origin Values
 

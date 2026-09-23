@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from runnerlens import __version__
-from runnerlens.github import fetch_ubuntu_manifest
+from runnerlens.github import fetch_ubuntu_manifest, normalize_ubuntu_image
 from runnerlens.impact import compare_receipts, compare_runner_images, correlate_receipt_with_image, newly_observed_ambient_dependencies
 from runnerlens.observer import observe_command
 from runnerlens.receipt import build_receipt, load_receipt, receipt_from_dict, to_json, write_receipt
@@ -101,10 +101,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     impact = subcommands.add_parser("impact", help="correlate a receipt with a GitHub Ubuntu image release")
     impact.add_argument("receipt", help="path to the observed receipt")
-    impact.add_argument("--baseline-image", help="baseline Ubuntu image, defaults to the receipt image")
+    impact.add_argument(
+        "--baseline-image",
+        help="baseline Ubuntu image, defaults to the receipt image; requires --baseline-image-version",
+    )
     impact.add_argument("--baseline-image-version", help="baseline GitHub runner image version")
     impact.add_argument("--target-image", help="target Ubuntu image, defaults to the receipt image")
-    impact.add_argument("--target-image-version", help="target GitHub runner image version; defaults to the receipt")
+    impact.add_argument(
+        "--target-image-version",
+        help="target GitHub runner image version; defaults to the receipt only for the same image",
+    )
     impact.add_argument("--json", action="store_true", help="print JSON impact data")
 
     check = subcommands.add_parser("check", help="fail when a receipt adds ambient runner dependencies")
@@ -121,12 +127,19 @@ def run_command(args: argparse.Namespace) -> int:
         print("runnerlens run requires a command, for example: runnerlens run -- make", file=sys.stderr)
         return 2
 
-    observation = observe_command(
-        wrapped_command,
-        cwd=Path.cwd(),
-        root_is_launcher=args.root_is_launcher,
-        trace_process_tree=not args.no_process_tree,
-    )
+    working_directory = Path.cwd()
+    repository_root = _repository_root(working_directory)
+    try:
+        observation = observe_command(
+            wrapped_command,
+            cwd=working_directory,
+            root_is_launcher=args.root_is_launcher,
+            trace_process_tree=not args.no_process_tree,
+            stdout=sys.stderr if args.json else None,
+        )
+    except OSError as error:
+        print(f"runnerlens could not start the wrapped command: {error}", file=sys.stderr)
+        return 2
     receipt_env = dict(os.environ)
     if args.workflow_provisioned_path:
         receipt_env["RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"] = os.pathsep.join(args.workflow_provisioned_path)
@@ -134,11 +147,15 @@ def run_command(args: argparse.Namespace) -> int:
         receipt_env["RUNNERLENS_CONTAINERIZED"] = "true"
     receipt = build_receipt(
         observation,
-        repository_root=Path.cwd(),
+        repository_root=repository_root,
         env=receipt_env,
         include_support_tools=args.include_support_tools,
     )
-    write_receipt(receipt, Path(args.output))
+    try:
+        write_receipt(receipt, Path(args.output))
+    except (OSError, ValueError) as error:
+        print(f"runnerlens could not write receipt {args.output}: {error}", file=sys.stderr)
+        return 2
 
     if args.json:
         print(to_json(receipt.to_dict()), end="")
@@ -146,6 +163,8 @@ def run_command(args: argparse.Namespace) -> int:
         print(render_report(receipt), end="")
         print(f"Receipt written to {args.output}", file=sys.stderr)
 
+    if receipt.exit_code < 0:
+        return 128 - receipt.exit_code
     return receipt.exit_code
 
 
@@ -191,18 +210,28 @@ def image_impact_command(args: argparse.Namespace) -> int:
         receipt = receipt_from_dict(load_receipt(Path(args.receipt)))
         if receipt.runner.provider != "github-actions":
             raise ValueError("receipt was not produced on GitHub Actions")
+        if args.baseline_image and not args.baseline_image_version:
+            raise ValueError("--baseline-image requires --baseline-image-version")
         image = args.target_image or receipt.runner.image
         if not image:
             raise ValueError("target image is required when the receipt has no runner image")
-        target_image_version = args.target_image_version or receipt.runner.image_version
+        target_image_version = args.target_image_version
+        if (
+            target_image_version is None
+            and receipt.runner.image
+            and normalize_ubuntu_image(image) == normalize_ubuntu_image(receipt.runner.image)
+        ):
+            target_image_version = receipt.runner.image_version
         if not target_image_version:
             raise ValueError(
-                "target image version is required when the receipt has no runner image version"
+                "target image version is required when the receipt has no runner image version "
+                "for the selected target image"
             )
         target_manifest = fetch_ubuntu_manifest(image, target_image_version)
         baseline_manifest = None
         if args.baseline_image_version:
-            baseline_manifest = fetch_ubuntu_manifest(args.baseline_image or image, args.baseline_image_version)
+            baseline_image = args.baseline_image or receipt.runner.image or image
+            baseline_manifest = fetch_ubuntu_manifest(baseline_image, args.baseline_image_version)
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"could not correlate receipt with runner image: {error}", file=sys.stderr)
         return 2
@@ -243,6 +272,14 @@ def _clean_wrapped_command(argv: list[str]) -> list[str]:
     if argv and argv[0] == "--":
         return argv[1:]
     return argv
+
+
+def _repository_root(working_directory: Path) -> Path:
+    resolved_directory = working_directory.resolve()
+    for candidate in (resolved_directory, *resolved_directory.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return resolved_directory
 
 
 if __name__ == "__main__":

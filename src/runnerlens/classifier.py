@@ -75,11 +75,13 @@ def classify_event(
     elif path and _is_tool_cache(path, env):
         origin = "tool-cache"
         confidence = "confirmed"
-        evidence.append("path is inside hosted tool cache")
+        evidence.append(_tool_cache_evidence(path))
     elif _is_github_hosted_runner(runner) and path and _has_hosted_runner_prefix(path):
         origin = "runner-provided"
         confidence = "probable"
         evidence.append("documented base-image path on GitHub-hosted runner")
+    elif path and _contains_parent_traversal(path):
+        evidence.append("path contains parent traversal; origin was not inferred")
     elif runner.provider == "local" and path:
         evidence.append("local execution cannot establish CI runner provenance")
     elif event.path and path is None:
@@ -107,10 +109,14 @@ def _normalize_path(path: str | None) -> str | None:
 
 
 def _has_system_prefix(path: str) -> bool:
-    return any(path == prefix or path.startswith(prefix + "/") for prefix in SYSTEM_PREFIXES)
+    return not _contains_parent_traversal(path) and any(
+        path == prefix or path.startswith(prefix + "/") for prefix in SYSTEM_PREFIXES
+    )
 
 
 def _has_hosted_runner_prefix(path: str) -> bool:
+    if _contains_parent_traversal(path):
+        return False
     return _has_system_prefix(path) or any(
         path == prefix or path.startswith(prefix + "/")
         for prefix in GITHUB_HOSTED_RUNNER_PREFIXES
@@ -118,10 +124,29 @@ def _has_hosted_runner_prefix(path: str) -> bool:
 
 
 def _is_tool_cache(path: str, env: Mapping[str, str]) -> bool:
-    if any(path.startswith(marker) for marker in TOOL_CACHE_MARKERS):
+    if _uses_tool_cache_prefix(path):
         return True
-    tool_dir = env.get("AGENT_TOOLSDIRECTORY") or env.get("RUNNER_TOOL_CACHE")
-    return bool(tool_dir and _is_relative_to(Path(path), Path(tool_dir)))
+    return any(
+        Path(tool_dir).is_absolute() and _is_relative_to(Path(path), Path(tool_dir))
+        for tool_dir in (env.get("AGENT_TOOLSDIRECTORY"), env.get("RUNNER_TOOL_CACHE"))
+        if tool_dir
+    )
+
+
+def _uses_tool_cache_prefix(path: str) -> bool:
+    return not _contains_parent_traversal(path) and any(
+        path.startswith(marker) for marker in TOOL_CACHE_MARKERS
+    )
+
+
+def _tool_cache_evidence(path: str) -> str:
+    if _uses_tool_cache_prefix(path):
+        return "observed path uses a hosted tool-cache prefix"
+    return "path resolves inside a configured tool cache"
+
+
+def _contains_parent_traversal(path: str) -> bool:
+    return ".." in PurePosixPath(path).parts
 
 
 def _is_workflow_provisioned(path: str, env: Mapping[str, str]) -> bool:
@@ -143,6 +168,6 @@ def _is_github_hosted_runner(runner: RunnerInfo) -> bool:
 def _is_relative_to(path: Path, root: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
-    except (OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
         return False
     return True
