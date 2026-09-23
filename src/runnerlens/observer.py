@@ -41,7 +41,10 @@ _ROOT_GETPID_RE = re.compile(r"^getpid\(\)\s+=\s+(?P<pid>\d+)$")
 
 
 def observe_command(
-    argv: list[str], cwd: Path | None = None, root_is_launcher: bool = False
+    argv: list[str],
+    cwd: Path | None = None,
+    root_is_launcher: bool = False,
+    trace_process_tree: bool = True,
 ) -> Observation:
     if not argv:
         raise ValueError("no command provided")
@@ -49,7 +52,10 @@ def observe_command(
     started_at = utc_now()
     executable = argv[0]
     resolved_path = shutil.which(executable, path=os.environ.get("PATH"))
-    if platform.system() == "Linux" and shutil.which("strace"):
+    if not trace_process_tree:
+        events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+        events = [replace(event, observation="subprocess-root-only") for event in events]
+    elif platform.system() == "Linux" and shutil.which("strace"):
         events, exit_code = _observe_with_strace(argv, cwd)
         if not events:
             events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]

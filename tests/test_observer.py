@@ -67,6 +67,27 @@ def test_observer_retains_root_event_when_strace_has_no_parseable_events(monkeyp
     assert result.events[0].observation == "subprocess-root-fallback"
 
 
+def test_observer_can_skip_ptrace_and_label_root_only_coverage(monkeypatch) -> None:
+    monkeypatch.setattr(observer.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
+    monkeypatch.setattr(
+        observer,
+        "_observe_root_command",
+        lambda argv, cwd, resolved: ([observer._root_event(argv[0], resolved, "subprocess-root")], 0),
+    )
+    monkeypatch.setattr(
+        observer,
+        "_observe_with_strace",
+        lambda argv, cwd: (_ for _ in ()).throw(AssertionError("ptrace must be skipped")),
+    )
+
+    result = observer.observe_command(["podman"], trace_process_tree=False)
+
+    assert len(result.events) == 1
+    assert result.events[0].path == "/usr/bin/podman"
+    assert result.events[0].observation == "subprocess-root-only"
+
+
 def test_observer_marks_an_action_wrapper_as_a_launcher(monkeypatch) -> None:
     monkeypatch.setattr(observer.platform, "system", lambda: "Windows")
     monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
