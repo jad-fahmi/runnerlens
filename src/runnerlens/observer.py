@@ -32,6 +32,11 @@ class Observation:
 _EXECVE_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?execve\(\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
 )
+_PROCESS_CREATE_RE = re.compile(
+    r"^(?:(?:\[pid\s+)?(?P<parent_pid>\d+)\]?\s+)?"
+    r"(?:clone|clone3|fork|vfork)\(.*\)\s+=\s+(?P<child_pid>\d+)$"
+)
+_ROOT_GETPID_RE = re.compile(r"^getpid\(\)\s+=\s+(?P<pid>\d+)$")
 
 
 def observe_command(argv: list[str], cwd: Path | None = None) -> Observation:
@@ -85,7 +90,19 @@ def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[Execut
 
     try:
         completed = subprocess.run(
-            ["strace", "-f", "-qq", "-e", "trace=execve", "-s", "0", "-o", str(trace_path), "--", *argv],
+            [
+                "strace",
+                "-f",
+                "-qq",
+                "-e",
+                "trace=execve,clone,clone3,fork,vfork,getpid",
+                "-s",
+                "0",
+                "-o",
+                str(trace_path),
+                "--",
+                *argv,
+            ],
             cwd=cwd,
             check=False,
         )
@@ -97,18 +114,40 @@ def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[Execut
 
 
 def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
-    """Convert successful ``strace -f -e execve`` output into execution events."""
+    """Convert strace execution and process-creation output into events.
+
+    A parent PID is recorded only when strace reports a successful process
+    creation syscall before that child executes. Root and incomplete lineage
+    remain unset instead of being inferred.
+    """
     events: list[ExecutionEvent] = []
+    parents: dict[int, int] = {}
+    root_pid: int | None = None
     for line in trace.splitlines():
+        root_pid_match = _ROOT_GETPID_RE.match(line)
+        if root_pid_match:
+            root_pid = int(root_pid_match.group("pid"))
+            continue
+
+        creation_match = _PROCESS_CREATE_RE.match(line)
+        if creation_match:
+            parent_pid = creation_match.group("parent_pid")
+            parent = int(parent_pid) if parent_pid is not None else root_pid
+            if parent is not None:
+                parents[int(creation_match.group("child_pid"))] = parent
+            continue
+
         match = _EXECVE_RE.match(line)
         if not match:
             continue
         path = bytes(match.group("path"), "utf-8").decode("unicode_escape")
+        pid = int(match.group("pid")) if match.group("pid") else None
         events.append(
             ExecutionEvent(
                 executable=Path(path).name,
                 path=path,
-                pid=int(match.group("pid")) if match.group("pid") else None,
+                pid=pid,
+                parent_pid=parents.get(pid) if pid is not None else None,
                 observation="strace-execve",
             )
         )

@@ -33,3 +33,21 @@ def test_build_receipt_uses_schema_and_dependencies(tmp_path: Path, monkeypatch)
 def test_receipt_from_dict_rejects_an_unknown_schema_version() -> None:
     with pytest.raises(ValueError, match="unsupported receipt schema"):
         receipt_from_dict({"schema_version": "99.0.0"})
+
+
+def test_receipt_serializes_process_parent_evidence(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    observation = Observation(
+        command=ObservedCommand(executable="make", resolved_path="/usr/bin/make"),
+        events=[
+            ExecutionEvent(executable="make", path="/usr/bin/make", pid=42),
+            ExecutionEvent(executable="cmake", path="/usr/bin/cmake", pid=43, parent_pid=42),
+        ],
+        started_at="2026-09-21T00:00:00+00:00",
+        ended_at="2026-09-21T00:00:01+00:00",
+        exit_code=0,
+    )
+
+    receipt = build_receipt(observation, tmp_path)
+
+    assert receipt.to_dict()["events"][1]["parent_pid"] == 42

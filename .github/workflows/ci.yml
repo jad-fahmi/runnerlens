@@ -24,7 +24,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         with:
-          command: python -c "from pathlib import Path; Path('runnerlens-smoke.txt').write_text('ok')"
+          command: |
+            python -c "from pathlib import Path; Path('runnerlens-smoke.txt').write_text('ok')" &
+            wait
           output: runnerlens-action-receipt.json
       - name: Verify action receipt exists
         run: test -s runnerlens-action-receipt.json
@@ -33,7 +35,7 @@ jobs:
       - name: Verify action dependencies
         run: python -c "import json; assert json.load(open('runnerlens-action-receipt.json'))['dependencies']"
       - name: Verify Linux process-tree evidence
-        run: python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert any(event['observation'] == 'strace-execve' for event in receipt['events'])"
+        run: python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert any(event['observation'] == 'strace-execve' for event in receipt['events']); assert any(event.get('parent_pid') is not None for event in receipt['events'])"
       - name: Verify wrapped command completed
         run: test "$(cat runnerlens-smoke.txt)" = "ok"
       - name: Accept the first receipt as a baseline
