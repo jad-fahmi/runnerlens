@@ -67,9 +67,12 @@ For such a run, external executable paths are classified as `container-provided`
 instead of runner-provided or tool-cache. RunnerLens does not infer container
 execution from an incidental filesystem marker.
 
-`runnerlens compare` compares two receipts and reports observed dependencies as
-added, removed, changed, or unchanged. It does not claim that a changed tool was
-caused by the runner image: it preserves both receipts as the underlying evidence.
+`runnerlens compare` compares two receipts by executable name and observed path,
+reporting dependencies as added, removed, changed, or unchanged. This preserves
+switches between system and tool-cache copies of the same executable instead of
+silently treating them as one dependency. It does not claim that a changed tool
+was caused by the runner image: it preserves both receipts as the underlying
+evidence.
 
 For GitHub-hosted Ubuntu receipts, `runnerlens impact` fetches the exact release
 inventory from `actions/runner-images`, normalizes its documented tool versions,
