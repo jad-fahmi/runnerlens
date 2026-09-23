@@ -127,6 +127,11 @@ Use the composite action after checkout and any intentional provisioning steps:
 The action writes `runnerlens-receipt.json` and publishes the human-readable
 receipt to the job summary. To retain the JSON receipt between runs, upload it
 with `actions/upload-artifact` or commit it as a reviewed baseline.
+For commands that require setuid or setgid helpers, set
+`process-tree-observation: false` to avoid ptrace changing their privileges.
+Because the action wraps scripts in Bash, this mode records only the Bash
+wrapper and does not identify tools invoked inside the script. Use the CLI's
+`--no-process-tree` mode for a direct command receipt when possible.
 When `baseline` is set, a successful build fails if it introduces a new
 runner-provided or tool-cache dependency. A failing wrapped build retains its
 own exit status regardless of the baseline result.

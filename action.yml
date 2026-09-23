@@ -23,6 +23,10 @@ inputs:
     description: Set to true only when the wrapped command runs inside a workflow container.
     required: false
     default: "false"
+  process-tree-observation:
+    description: Set to false to preserve privileged helper behavior; the action then records only its Bash wrapper.
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -37,9 +41,14 @@ runs:
         RUNNERLENS_BASELINE: ${{ inputs.baseline }}
         RUNNERLENS_WORKFLOW_PROVISIONED_PATHS: ${{ inputs.workflow-provisioned-paths }}
         RUNNERLENS_CONTAINERIZED: ${{ inputs.container }}
+        RUNNERLENS_PROCESS_TREE_OBSERVATION: ${{ inputs.process-tree-observation }}
       run: |
         set +e
-        runnerlens run --root-is-launcher --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
+        if [ "$RUNNERLENS_PROCESS_TREE_OBSERVATION" = "false" ]; then
+          runnerlens run --no-process-tree --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
+        else
+          runnerlens run --root-is-launcher --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
+        fi
         exit_code=$?
         runnerlens show "$RUNNERLENS_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
         if [ -n "$RUNNERLENS_BASELINE" ]; then
