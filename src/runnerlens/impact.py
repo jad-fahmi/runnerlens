@@ -251,9 +251,17 @@ def _fingerprint(dependency: Dependency) -> tuple[str | None, str | None, str | 
 
 
 def _version_is_present(observed: str, documented_versions: tuple[str, ...]) -> bool:
-    return any(
-        observed == documented
-        or observed.startswith(documented + ".")
-        or documented.startswith(observed + ".")
-        for documented in documented_versions
-    )
+    for documented in documented_versions:
+        epoch, separator, upstream = documented.partition(":")
+        if separator and epoch.isdecimal():
+            documented = upstream
+        if observed == documented or observed.startswith(documented + "."):
+            return True
+        if not documented.startswith(observed):
+            continue
+        suffix = documented[len(observed) :]
+        if suffix.startswith((".", "+")):
+            return True
+        if suffix.startswith("-") and len(suffix) > 1 and suffix[1].isdigit():
+            return True
+    return False

@@ -83,6 +83,43 @@ def test_image_impact_excludes_non_ambient_dependencies() -> None:
     ]
 
 
+def test_image_impact_matches_upstream_version_to_debian_package_revision() -> None:
+    receipt = _receipt(
+        [
+            Dependency(
+                "automake",
+                "/usr/bin/automake",
+                "runner-provided",
+                "probable",
+                version="1.16.5",
+                package="automake:amd64",
+            )
+        ],
+        "20260907.300.1",
+    )
+    package_version = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260907.300",
+        source_url="https://example.test/manifest",
+        tools={},
+        apt_packages={"automake": "1:1.16.5-1.3ubuntu1"},
+    )
+    prerelease_version = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260907.300",
+        source_url="https://example.test/manifest",
+        tools={},
+        apt_packages={"automake": "1:1.16.5~rc1-1"},
+    )
+
+    impact = correlate_receipt_with_image(receipt, package_version)
+    prerelease_impact = correlate_receipt_with_image(receipt, prerelease_version)
+
+    assert impact.dependencies[0].status == "version-present"
+    assert impact.dependencies[0].documented_versions == ("1:1.16.5-1.3ubuntu1",)
+    assert prerelease_impact.dependencies[0].status == "version-changed"
+
+
 def test_new_ambient_dependencies_excludes_unknown_and_repository_tools() -> None:
     baseline = _receipt([], "20260901.1")
     target = _receipt(
