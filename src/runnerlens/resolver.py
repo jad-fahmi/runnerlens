@@ -13,6 +13,11 @@ from runnerlens.models import Dependency
 
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
 _GO_VERSION_RE = re.compile(r"\bgo(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)\b")
+_DISTRIBUTION_WRAPPED_VERSION_RE = re.compile(
+    r"\((?:Ubuntu|Debian|Red Hat|Fedora|SUSE)[^)]*\)[ \t]*"
+    r"(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)",
+    re.IGNORECASE,
+)
 RESOLVABLE_ORIGINS = frozenset({"runner-provided", "tool-cache"})
 
 
@@ -51,12 +56,17 @@ def detect_version(path: str | None) -> str | None:
             timeout=2,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return None
 
     if completed.returncode != 0:
         return None
-    match = _VERSION_RE.search(completed.stdout) or _GO_VERSION_RE.search(completed.stdout)
+    match = (
+        _DISTRIBUTION_WRAPPED_VERSION_RE.search(completed.stdout.splitlines()[0])
+        if completed.stdout.splitlines()
+        else None
+    )
+    match = match or _VERSION_RE.search(completed.stdout) or _GO_VERSION_RE.search(completed.stdout)
     return match.group(1) if match else None
 
 
@@ -75,13 +85,18 @@ def find_package_owner(path: str | None) -> str | None:
             timeout=2,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return None
 
     if completed.returncode != 0 or not completed.stdout:
         return None
-    owner, separator, _ = completed.stdout.splitlines()[0].rpartition(": ")
-    return owner if separator else None
+    owners = set()
+    for line in completed.stdout.splitlines():
+        owner, separator, _ = line.rpartition(": ")
+        if not separator or not owner:
+            return None
+        owners.add(owner)
+    return next(iter(owners)) if len(owners) == 1 else None
 
 
 def _is_absolute_file(path: str | None) -> bool:

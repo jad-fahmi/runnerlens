@@ -153,11 +153,12 @@ def show_command(args: argparse.Namespace) -> int:
     receipt_path = Path(args.receipt)
     try:
         data = load_receipt(receipt_path)
-        receipt = receipt_from_dict(data)
     except (OSError, ValueError) as error:
         print(f"could not read receipt {receipt_path}: {error}", file=sys.stderr)
         return 2
-    except (KeyError, TypeError) as error:
+    try:
+        receipt = receipt_from_dict(data)
+    except (ValueError, KeyError, TypeError) as error:
         print(f"could not render receipt {receipt_path}: {error}", file=sys.stderr)
         return 2
 

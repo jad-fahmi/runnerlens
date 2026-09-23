@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
 _IMAGE_RE = re.compile(r"^ubuntu-?(?P<major>\d{2})(?:\.04)?$")
 _COMPILER_EXECUTABLE_RE = re.compile(
-    r"^(?P<name>cc|c\+\+|gcc|g\+\+|clang|clang\+\+)(?:-\d+(?:\.\d+)*)?$"
+    r"^(?P<name>cc|c\+\+|gcc|g\+\+|clang|clang\+\+)(?:-(?P<major>\d+)(?:\.\d+)*)?$"
 )
 
 
@@ -110,6 +110,8 @@ def manifest_versions(
 ) -> tuple[str, ...] | None:
     """Find documented versions for an observed executable, including core aliases."""
     normalized = _normalize_tool_name(executable)
+    compiler_match = _COMPILER_EXECUTABLE_RE.match(executable.lower())
+    compiler_major = compiler_match.group("major") if compiler_match else None
     aliases = {
         "cmake": ("cmake",),
         "ninja": ("ninja",),
@@ -132,11 +134,31 @@ def manifest_versions(
     for candidate in _manifest_candidates(executable, normalized, aliases):
         if _is_tool_cache_dependency(path, origin):
             if candidate in manifest.cached_tools:
-                return manifest.cached_tools[candidate]
+                versions = manifest.cached_tools[candidate]
+                matching_versions = _filter_compiler_versions(versions, compiler_major)
+                if matching_versions is not None:
+                    return matching_versions
             continue
         if candidate in manifest.tools:
-            return manifest.tools[candidate]
+            versions = manifest.tools[candidate]
+            matching_versions = _filter_compiler_versions(versions, compiler_major)
+            if matching_versions is not None:
+                return matching_versions
     return None
+
+
+def _filter_compiler_versions(
+    versions: tuple[str, ...], compiler_major: str | None
+) -> tuple[str, ...] | None:
+    if compiler_major is None:
+        return versions
+    matching_versions = tuple(
+        version
+        for version in versions
+        if (match := _VERSION_RE.match(version))
+        and match.group(1).split(".", 1)[0] == compiler_major
+    )
+    return matching_versions or None
 
 
 def parse_ubuntu_apt_packages(markdown: str) -> dict[str, str]:

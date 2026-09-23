@@ -54,9 +54,10 @@ def test_parse_ubuntu_report_and_lookup_executable_aliases() -> None:
     assert manifest_versions(manifest, "clang++") == ("18.1.8", "19.1.7")
     assert manifest_versions(manifest, "g++") == ("13.3.0", "14.2.0")
     assert manifest_versions(manifest, "c++") == ("13.3.0", "14.2.0")
-    assert manifest_versions(manifest, "gcc-14") == ("13.3.0", "14.2.0")
-    assert manifest_versions(manifest, "g++-13") == ("13.3.0", "14.2.0")
-    assert manifest_versions(manifest, "clang++-19") == ("18.1.8", "19.1.7")
+    assert manifest_versions(manifest, "gcc-14") == ("14.2.0",)
+    assert manifest_versions(manifest, "g++-13") == ("13.3.0",)
+    assert manifest_versions(manifest, "clang++-19") == ("19.1.7",)
+    assert manifest_versions(manifest, "clang++-17") is None
     assert manifest_versions(manifest, "node") == ("22.14.0",)
 
 

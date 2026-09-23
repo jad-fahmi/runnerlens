@@ -54,6 +54,9 @@ default dependency list excludes launcher events and routine shell utilities to
 keep the receipt focused. Use `runnerlens run --include-support-tools` to
 include them in dependency output.
 
+Unresolved executable paths are serialized as `null` in dependency and event
+records so the receipt can be loaded without inventing a path.
+
 ## Origin Values
 
 - `runner-provided`

@@ -44,8 +44,12 @@ passed relative to directory descriptors or through `AT_EMPTY_PATH` are kept
 as unresolved events and mark coverage partial rather than guessed. Elsewhere,
 it records only the wrapped root command and labels that lower-coverage
 observation method in the receipt.
-If `strace` completes without any parseable execution events, RunnerLens also
-retains the root command with a `subprocess-root-fallback` observation label.
+Before tracing, RunnerLens probes tracer availability with `/bin/true`. A failed
+probe or a tracer launch error runs the build with root-only fallback evidence.
+If `strace` completes without any parseable execution events, or its trace file
+cannot be read, RunnerLens retains the root command with a
+`subprocess-root-fallback` observation label and the tracer's returned exit code.
+It does not rerun the build after the tracer has completed.
 Ptrace changes setuid and setgid execution: by default, traced privileged
 programs run without their effective privileges ([strace manual](https://man7.org/linux/man-pages/man1/strace.1.html)).
 For commands that rely on such helpers, `runnerlens run --no-process-tree`
