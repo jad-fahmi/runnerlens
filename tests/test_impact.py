@@ -173,6 +173,31 @@ def test_compare_runner_images_filters_changes_to_observed_ambient_dependencies(
     ]
 
 
+def test_compare_runner_images_ignores_inventory_version_order() -> None:
+    receipt = _receipt(
+        [Dependency("clang", "/usr/bin/clang", "runner-provided", "probable")],
+        "20260901.1",
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260901.1",
+        source_url="https://example.test/baseline",
+        tools={"clang": ("18.1.8", "19.1.7")},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260922.1",
+        source_url="https://example.test/target",
+        tools={"clang": ("19.1.7", "18.1.8")},
+    )
+
+    impact = compare_runner_images(receipt, baseline, target)
+
+    assert impact.dependencies[0].status == "unchanged"
+    assert impact.dependencies[0].baseline_versions == ("18.1.8", "19.1.7")
+    assert impact.dependencies[0].target_versions == ("19.1.7", "18.1.8")
+
+
 def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> None:
     receipt = _receipt(
         [Dependency("g++-14", "/usr/bin/g++-14", "runner-provided", "probable")],
