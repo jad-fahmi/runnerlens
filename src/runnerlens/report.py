@@ -49,6 +49,9 @@ def render_report(receipt: Receipt) -> str:
                     f"    confidence  {dependency.confidence}",
                 ]
             )
+            if dependency.evidence:
+                lines.append("    evidence")
+                lines.extend(f"      {evidence}" for evidence in dependency.evidence)
 
     lines.extend(
         [

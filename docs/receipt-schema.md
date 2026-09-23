@@ -65,3 +65,10 @@ The initial scaffold uses:
 - `unknown`
 
 Future versions may refine these values, but should keep the bias toward conservative evidence.
+
+## Human Report
+
+`runnerlens show` renders each dependency's path, version, package owner, origin,
+confidence, and evidence lines. The report intentionally includes the observation
+method, such as `strace-execve`, so a classification remains inspectable outside
+the JSON receipt.
