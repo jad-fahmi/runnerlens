@@ -72,7 +72,7 @@ def classify_event(
         origin = "container-provided"
         confidence = "confirmed"
         evidence.append("container execution was explicitly declared")
-    elif runner.provider == "github-actions" and path and _has_system_prefix(path):
+    elif _is_github_hosted_runner(runner) and path and _has_system_prefix(path):
         origin = "runner-provided"
         confidence = "probable"
         evidence.append("system path on GitHub-hosted runner")
@@ -117,6 +117,10 @@ def _is_workflow_provisioned(path: str, env: Mapping[str, str]) -> bool:
 
 def _is_containerized(env: Mapping[str, str]) -> bool:
     return env.get(CONTAINERIZED_ENV, "").lower() in {"1", "true", "yes"}
+
+
+def _is_github_hosted_runner(runner: RunnerInfo) -> bool:
+    return runner.provider == "github-actions" and runner.environment == "github-hosted"
 
 
 def _is_relative_to(path: Path, root: Path) -> bool:

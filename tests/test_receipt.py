@@ -10,6 +10,7 @@ from runnerlens.receipt import build_receipt, receipt_from_dict
 def test_build_receipt_uses_schema_and_dependencies(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.setenv("RUNNER_OS", "Linux")
+    monkeypatch.setenv("RUNNER_ENVIRONMENT", "github-hosted")
     monkeypatch.setenv("ImageOS", "ubuntu24")
     monkeypatch.setenv("ImageVersion", "20260921.1")
 

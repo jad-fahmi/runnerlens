@@ -92,4 +92,8 @@ metadata request is the explicit `runnerlens impact` command.
 
 RunnerLens should prefer `unknown` over unsupported certainty.
 
-For example, `/usr/bin/cmake` on GitHub Actions is probably runner-provided, but an earlier workflow step might have intentionally installed or replaced it. The classifier should preserve that uncertainty unless stronger evidence exists.
+For example, `/usr/bin/cmake` on a GitHub-hosted runner is probably
+runner-provided, but an earlier workflow step might have intentionally installed
+or replaced it. A self-hosted or otherwise unproven GitHub Actions runner stays
+`unknown`. The classifier should preserve that uncertainty unless stronger
+evidence exists.
