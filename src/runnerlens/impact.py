@@ -151,7 +151,11 @@ def correlate_receipt_with_image(receipt: Receipt, manifest: GitHubImageManifest
     dependencies: list[ImageDependencyImpact] = []
     for dependency in _ambient_dependencies(receipt):
         documented_versions = manifest_versions(
-            manifest, dependency.name, dependency.path, dependency.origin
+            manifest,
+            dependency.name,
+            dependency.path,
+            dependency.origin,
+            dependency.package,
         )
         if documented_versions is None:
             status = "metadata-unavailable"
@@ -183,10 +187,18 @@ def compare_runner_images(
     dependencies: list[RunnerImageDependencyImpact] = []
     for dependency in _ambient_dependencies(receipt):
         baseline_versions = manifest_versions(
-            baseline, dependency.name, dependency.path, dependency.origin
+            baseline,
+            dependency.name,
+            dependency.path,
+            dependency.origin,
+            dependency.package,
         )
         target_versions = manifest_versions(
-            target, dependency.name, dependency.path, dependency.origin
+            target,
+            dependency.name,
+            dependency.path,
+            dependency.origin,
+            dependency.package,
         )
         if baseline_versions is None and target_versions is None:
             status = "metadata-unavailable"

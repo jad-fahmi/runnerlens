@@ -22,6 +22,7 @@ class GitHubImageManifest:
     source_url: str
     tools: dict[str, tuple[str, ...]]
     cached_tools: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    apt_packages: dict[str, str] = field(default_factory=dict)
 
 
 def normalize_ubuntu_image(image: str) -> str:
@@ -64,6 +65,7 @@ def fetch_ubuntu_manifest(image: str, image_version: str, timeout: float = 10) -
         source_url=source_url,
         tools=parse_ubuntu_software_report(content),
         cached_tools=parse_ubuntu_cached_tools(content),
+        apt_packages=parse_ubuntu_apt_packages(content),
     )
 
 
@@ -104,6 +106,7 @@ def manifest_versions(
     executable: str,
     path: str | None = None,
     origin: str | None = None,
+    package: str | None = None,
 ) -> tuple[str, ...] | None:
     """Find documented versions for an observed executable, including core aliases."""
     normalized = _normalize_tool_name(executable)
@@ -122,12 +125,38 @@ def manifest_versions(
         "ruby": ("ruby",),
         "go": ("go",),
     }
+    if package:
+        package_name = package.partition(":")[0].lower()
+        if package_name in manifest.apt_packages and not _is_tool_cache_dependency(path, origin):
+            return (manifest.apt_packages[package_name],)
     for candidate in _manifest_candidates(executable, normalized, aliases):
         if _is_tool_cache_dependency(path, origin) and candidate in manifest.cached_tools:
             return manifest.cached_tools[candidate]
         if candidate in manifest.tools:
             return manifest.tools[candidate]
     return None
+
+
+def parse_ubuntu_apt_packages(markdown: str) -> dict[str, str]:
+    """Parse the installed apt package table without reading adjacent tables."""
+    packages: dict[str, str] = {}
+    in_apt_packages = False
+    for line in markdown.splitlines():
+        heading = re.match(r"^(?P<marks>#{1,6})\s+(?P<text>.+?)\s*$", line)
+        if heading:
+            in_apt_packages = (
+                heading.group("text").strip().lower() == "installed apt packages"
+            )
+            continue
+        if not in_apt_packages:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 2 or cells[0].lower() == "name" or set(cells[0]) <= {"-", ":"}:
+            continue
+        name, version = cells
+        if name and version and "|" not in name and "|" not in version:
+            packages[name.lower()] = version
+    return packages
 
 
 def parse_ubuntu_cached_tools(markdown: str) -> dict[str, tuple[str, ...]]:

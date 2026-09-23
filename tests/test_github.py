@@ -5,6 +5,7 @@ from runnerlens.github import (
     fetch_ubuntu_manifest,
     manifest_versions,
     parse_ubuntu_cached_tools,
+    parse_ubuntu_apt_packages,
     parse_ubuntu_software_report,
     release_tag,
 )
@@ -86,6 +87,36 @@ def test_parse_cached_tools_and_match_tool_cache_executable() -> None:
         "3.11.16",
         "3.12.14",
     )
+
+
+def test_parse_apt_packages_and_match_multiarch_package_owner() -> None:
+    markdown = """### Installed apt packages
+| Name | Version |
+| ---- | ------- |
+| crun | 1.14.1-1ubuntu1 |
+| automake | 1:1.16.5-1.3ubuntu1 |
+
+### Other packages
+| Name | Version |
+| fake-tool | 9.9.9 |
+"""
+    packages = parse_ubuntu_apt_packages(markdown)
+    manifest = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260810.271",
+        source_url="https://example.test/report",
+        tools={"podman": ("5.8.4",)},
+        apt_packages=packages,
+    )
+
+    assert packages == {
+        "crun": "1.14.1-1ubuntu1",
+        "automake": "1:1.16.5-1.3ubuntu1",
+    }
+    assert manifest_versions(manifest, "crun", "/usr/bin/crun", package="crun:amd64") == (
+        "1.14.1-1ubuntu1",
+    )
+    assert manifest_versions(manifest, "podman") == ("5.8.4",)
 
 
 def test_fetch_ubuntu_manifest_uses_legacy_linux_path_when_needed(monkeypatch) -> None:
