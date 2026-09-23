@@ -32,6 +32,19 @@ def test_github_actions_system_path_is_probable_runner_provided(tmp_path: Path) 
     assert dependency.confidence == "probable"
 
 
+def test_github_actions_preinstalled_cargo_path_is_probable_runner_provided(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="cargo", path="/home/runner/.cargo/bin/cargo"),
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
+        tmp_path,
+        {},
+    )
+
+    assert dependency.origin == "runner-provided"
+    assert dependency.confidence == "probable"
+    assert "base-image path" in dependency.evidence[-1]
+
+
 def test_self_hosted_github_actions_system_path_stays_unknown(tmp_path: Path) -> None:
     dependency = classify_event(
         ExecutionEvent(executable="cmake", path="/usr/bin/cmake"),

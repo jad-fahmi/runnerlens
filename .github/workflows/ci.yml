@@ -129,3 +129,23 @@ jobs:
         with:
           name: public-fmt-receipt
           path: public-fmt-receipt.json
+
+  public-rust-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch a pinned public Rust project
+        run: |
+          git clone --no-checkout https://github.com/BurntSushi/ripgrep.git ripgrep-fixture
+          git -C ripgrep-fixture checkout 0e8390a66fbcf6eeac1aeb0541b367663a597c79
+      - uses: ./
+        with:
+          command: cargo build --locked --manifest-path ripgrep-fixture/Cargo.toml
+          output: public-ripgrep-receipt.json
+      - name: Verify observed runner dependency
+        run: >-
+          python -c "import json; dependencies = json.load(open('public-ripgrep-receipt.json'))['dependencies']; cargo = next(item for item in dependencies if item['name'] == 'cargo'); assert cargo['origin'] == 'runner-provided'; assert cargo['version']"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-ripgrep-receipt
+          path: public-ripgrep-receipt.json
