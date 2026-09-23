@@ -45,9 +45,10 @@ If `strace` completes without any parseable execution events, RunnerLens also
 retains the root command with a `subprocess-root-fallback` observation label.
 
 After classification, RunnerLens asks an observed absolute executable for its
-version with `--version`, and queries `dpkg-query` for the owning Debian package.
-Both operations are bounded by a short timeout. A value is omitted when either
-source does not return reliable evidence.
+standard version output (`--version`, or `go version` for Go), and queries
+`dpkg-query` for the owning Debian package. Both operations are bounded by a
+short timeout. A value is omitted when either source does not return reliable
+evidence.
 
 Resolution is limited to dependencies already classified as `runner-provided`
 or `tool-cache`. RunnerLens does not invoke repository-provided executables a

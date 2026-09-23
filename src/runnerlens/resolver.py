@@ -43,7 +43,7 @@ def detect_version(path: str | None) -> str | None:
 
     try:
         completed = subprocess.run(
-            [path, "--version"],
+            _version_command(path),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -86,3 +86,9 @@ def find_package_owner(path: str | None) -> str | None:
 
 def _is_absolute_file(path: str | None) -> bool:
     return bool(path and Path(path).is_absolute() and Path(path).is_file())
+
+
+def _version_command(path: str) -> list[str]:
+    if Path(path).name == "go":
+        return [path, "version"]
+    return [path, "--version"]
