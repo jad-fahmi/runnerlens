@@ -40,23 +40,36 @@ def fetch_ubuntu_manifest(image: str, image_version: str, timeout: float = 10) -
     """Download and parse the public software inventory for an Ubuntu release."""
     normalized_image = normalize_ubuntu_image(image)
     tag = release_tag(image, image_version)
-    readme_name = f"Ubuntu{normalized_image.removeprefix('ubuntu')}04-Readme.md"
-    source_url = (
-        "https://raw.githubusercontent.com/actions/runner-images/"
-        f"{tag}/images/ubuntu/{readme_name}"
-    )
-    request = Request(source_url, headers={"User-Agent": "RunnerLens/0.1"})
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            content = response.read().decode("utf-8")
-    except (OSError, URLError) as error:
-        raise ValueError(f"could not fetch GitHub runner-image metadata: {error}") from error
+    errors: list[OSError] = []
+    for source_url in _manifest_source_urls(tag, normalized_image):
+        request = Request(source_url, headers={"User-Agent": "RunnerLens/0.1"})
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                content = response.read().decode("utf-8")
+        except (OSError, URLError) as error:
+            errors.append(error)
+            continue
+        break
+    else:
+        detail = errors[-1] if errors else "no manifest source candidates"
+        raise ValueError(f"could not fetch GitHub runner-image metadata: {detail}") from errors[-1]
 
     return GitHubImageManifest(
         image=normalized_image,
         release=tag,
         source_url=source_url,
         tools=parse_ubuntu_software_report(content),
+    )
+
+
+def _manifest_source_urls(tag: str, normalized_image: str) -> tuple[str, ...]:
+    major = normalized_image.removeprefix("ubuntu")
+    readme_base = f"Ubuntu{major}04"
+    base_url = f"https://raw.githubusercontent.com/actions/runner-images/{tag}/"
+    return (
+        f"{base_url}images/ubuntu/{readme_base}-Readme.md",
+        f"{base_url}images/linux/{readme_base}-Readme.md",
+        f"{base_url}images/linux/{readme_base}-README.md",
     )
 
 
