@@ -19,6 +19,10 @@ SYSTEM_PREFIXES = (
     "/snap/bin",
 )
 
+GITHUB_HOSTED_RUNNER_PREFIXES = (
+    "/home/runner/.cargo/bin",
+)
+
 TOOL_CACHE_MARKERS = (
     "/opt/hostedtoolcache/",
     "/hostedtoolcache/",
@@ -72,10 +76,10 @@ def classify_event(
         origin = "container-provided"
         confidence = "confirmed"
         evidence.append("container execution was explicitly declared")
-    elif _is_github_hosted_runner(runner) and path and _has_system_prefix(path):
+    elif _is_github_hosted_runner(runner) and path and _has_hosted_runner_prefix(path):
         origin = "runner-provided"
         confidence = "probable"
-        evidence.append("system path on GitHub-hosted runner")
+        evidence.append("documented base-image path on GitHub-hosted runner")
     elif runner.provider == "local" and path:
         evidence.append("local execution cannot establish CI runner provenance")
     elif path is None:
@@ -98,6 +102,13 @@ def _normalize_path(path: str | None) -> str | None:
 
 def _has_system_prefix(path: str) -> bool:
     return any(path == prefix or path.startswith(prefix + "/") for prefix in SYSTEM_PREFIXES)
+
+
+def _has_hosted_runner_prefix(path: str) -> bool:
+    return _has_system_prefix(path) or any(
+        path == prefix or path.startswith(prefix + "/")
+        for prefix in GITHUB_HOSTED_RUNNER_PREFIXES
+    )
 
 
 def _is_tool_cache(path: str, env: Mapping[str, str]) -> bool:
