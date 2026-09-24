@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from runnerlens.classifier import classify_event
+from runnerlens.classifier import classify_event, classify_events
 from runnerlens.models import ExecutionEvent, RunnerInfo
 
 
@@ -18,6 +18,56 @@ def test_repository_path_is_confirmed_repository_provided(tmp_path: Path) -> Non
 
     assert dependency.origin == "repository-provided"
     assert dependency.confidence == "confirmed"
+
+
+def test_repository_path_with_parent_traversal_stays_unknown(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    tool = repository / "scripts" / "build-tool"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("", encoding="utf-8")
+    traversing_path = str(tmp_path / "outside" / ".." / "repository" / "scripts" / "build-tool")
+
+    dependency = classify_event(
+        ExecutionEvent(executable="build-tool", path=traversing_path),
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
+        repository,
+        {},
+    )
+
+    assert dependency.origin == "unknown"
+    assert dependency.confidence == "unknown"
+    assert "parent traversal" in dependency.evidence[-1]
+
+
+def test_windows_path_with_parent_traversal_stays_unknown(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="tool.exe", path=r"C:\tools\..\tool.exe"),
+        RunnerInfo(provider="github-actions", os="Windows", environment="github-hosted"),
+        tmp_path,
+        {"RUNNERLENS_CONTAINERIZED": "true"},
+    )
+
+    assert dependency.origin == "unknown"
+    assert "parent traversal" in dependency.evidence[-1]
+
+
+def test_duplicate_observations_preserve_distinct_evidence(tmp_path: Path) -> None:
+    dependencies = classify_events(
+        [
+            ExecutionEvent("cmake", "/usr/bin/cmake", observation="strace-execve"),
+            ExecutionEvent("cmake", "/usr/bin/cmake", observation="strace-execveat"),
+        ],
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
+        tmp_path,
+        {},
+    )
+
+    assert len(dependencies) == 1
+    assert dependencies[0].evidence == [
+        "observed via strace-execve",
+        "documented base-image path on GitHub-hosted runner",
+        "observed via strace-execveat",
+    ]
 
 
 def test_github_actions_system_path_is_probable_runner_provided(tmp_path: Path) -> None:

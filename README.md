@@ -34,7 +34,7 @@ RunnerLens makes those dependencies visible.
 ## Getting Started
 
 > [!NOTE]
-> RunnerLens is currently under development. The commands below describe the current local development scaffold.
+> RunnerLens is experimental. Its command-line interface and receipt schema may change during pre-alpha development.
 
 Install the local development package:
 
@@ -408,33 +408,11 @@ A clean RunnerLens report should not be interpreted as proof that a build is ful
 
 ---
 
-## Roadmap
+## Future work
 
-### Phase 1
-
-Observe build commands and identify runner-provided executables.
-
-### Phase 2
-
-Generate stable Runner Dependency Receipts.
-
-### Phase 3
-
-Compare receipts against runner image changes.
-
-### Phase 4
-
-Detect newly introduced ambient dependencies. `runnerlens check` is available for receipt baselines.
-
-### Phase 5
-
-Analyze runner migrations.
-
-### Phase 6
-
-Support additional CI providers and operating systems.
-
-The roadmap will be driven by real usage rather than feature count.
+The next areas to explore are runner migrations, additional CI providers, and
+operating systems. Changes will be guided by reproducible build cases and real
+runner-image regressions.
 
 ---
 

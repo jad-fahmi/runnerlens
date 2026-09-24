@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from runnerlens.models import Dependency, ExecutionEvent, RunnerInfo
@@ -43,7 +44,15 @@ def classify_events(
 
     for event in events:
         dependency = classify_event(event, runner, repository_root, data)
-        dependencies[(dependency.name, dependency.path)] = dependency
+        identity = (dependency.name, dependency.path)
+        previous = dependencies.get(identity)
+        if previous is None:
+            dependencies[identity] = dependency
+        else:
+            dependencies[identity] = replace(
+                previous,
+                evidence=list(dict.fromkeys((*previous.evidence, *dependency.evidence))),
+            )
 
     return sorted(dependencies.values(), key=lambda item: (item.name, item.path or ""))
 
@@ -60,7 +69,9 @@ def classify_event(
     confidence = "unknown"
     evidence = [f"observed via {event.observation}"]
 
-    if path and _is_relative_to(Path(path), repository_root):
+    if path and _contains_parent_traversal(path):
+        evidence.append("path contains parent traversal; origin was not inferred")
+    elif path and _is_relative_to(Path(path), repository_root):
         origin = "repository-provided"
         confidence = "confirmed"
         evidence.append("path is inside repository root")
@@ -80,8 +91,6 @@ def classify_event(
         origin = "runner-provided"
         confidence = "probable"
         evidence.append("documented base-image path on GitHub-hosted runner")
-    elif path and _contains_parent_traversal(path):
-        evidence.append("path contains parent traversal; origin was not inferred")
     elif runner.provider == "local" and path:
         evidence.append("local execution cannot establish CI runner provenance")
     elif event.path and path is None:
@@ -146,7 +155,7 @@ def _tool_cache_evidence(path: str) -> str:
 
 
 def _contains_parent_traversal(path: str) -> bool:
-    return ".." in PurePosixPath(path).parts
+    return ".." in PurePosixPath(path).parts or ".." in PureWindowsPath(path).parts
 
 
 def _is_workflow_provisioned(path: str, env: Mapping[str, str]) -> bool:

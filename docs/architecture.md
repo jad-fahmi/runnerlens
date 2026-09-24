@@ -26,9 +26,9 @@ Impact Engine
 Human / JSON / CI output
 ```
 
-## Current Scaffold
+## Components
 
-The current scaffold implements the first narrow slice:
+The package follows the receipt pipeline:
 
 - `runnerlens.cli`: command-line interface
 - `runnerlens.observer`: Linux process-tree observer with a root-command fallback
@@ -100,7 +100,7 @@ silently treating them as one dependency. It does not claim that a changed tool
 was caused by the runner image: it preserves both receipts as the underlying
 evidence.
 
-For GitHub-hosted Ubuntu receipts, `runnerlens impact` fetches the exact release
+For GitHub-hosted Ubuntu receipts, `runnerlens impact` fetches the release
 inventory from `actions/runner-images`, normalizes its documented tool versions,
 and correlates only observed `runner-provided` and `tool-cache` dependencies.
 For tool-cache paths, it reads the inventory's separate Cached Tools section
