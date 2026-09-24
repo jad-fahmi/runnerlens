@@ -150,7 +150,7 @@ Observed runner dependencies
 ```
 
 RunnerLens records executable versions and Debian package owners where reliable.
-Receipt comparison narrows run-to-run changes to the tools your build actually used. `runnerlens impact` downloads public GitHub Ubuntu inventories, compares two image releases when both versions are supplied, and filters the result to observed tools.
+Receipt comparison narrows run-to-run changes to the tools your build actually used. `runnerlens impact` downloads public GitHub Ubuntu inventories, compares two image releases when both versions are supplied, and filters the result to observed runner-provided and tool-cache dependencies. Tool-cache paths are matched against the image inventory's separate cached-tool versions.
 
 ---
 

@@ -148,8 +148,8 @@ def newly_observed_ambient_dependencies(impact: ReceiptImpact) -> list[Dependenc
 def correlate_receipt_with_image(receipt: Receipt, manifest: GitHubImageManifest) -> ImageImpact:
     """Match observed tools to documented versions in one target image release."""
     dependencies: list[ImageDependencyImpact] = []
-    for dependency in receipt.dependencies:
-        documented_versions = manifest_versions(manifest, dependency.name)
+    for dependency in _ambient_dependencies(receipt):
+        documented_versions = manifest_versions(manifest, dependency.name, dependency.path)
         if documented_versions is None:
             status = "metadata-unavailable"
         elif dependency.version is None:
@@ -178,9 +178,9 @@ def compare_runner_images(
 ) -> RunnerImageImpact:
     """Filter documented runner-image changes to tools observed in a receipt."""
     dependencies: list[RunnerImageDependencyImpact] = []
-    for dependency in receipt.dependencies:
-        baseline_versions = manifest_versions(baseline, dependency.name)
-        target_versions = manifest_versions(target, dependency.name)
+    for dependency in _ambient_dependencies(receipt):
+        baseline_versions = manifest_versions(baseline, dependency.name, dependency.path)
+        target_versions = manifest_versions(target, dependency.name, dependency.path)
         if baseline_versions is None and target_versions is None:
             status = "metadata-unavailable"
         elif baseline_versions is None:
@@ -215,6 +215,10 @@ def _by_name(dependencies: list[Dependency]) -> dict[str, Dependency]:
     for dependency in dependencies:
         grouped.setdefault(dependency.name, []).append(dependency)
     return {name: items[0] for name, items in grouped.items() if len(items) == 1}
+
+
+def _ambient_dependencies(receipt: Receipt) -> list[Dependency]:
+    return [dependency for dependency in receipt.dependencies if dependency.origin in AMBIENT_ORIGINS]
 
 
 def _fingerprint(dependency: Dependency) -> tuple[str | None, str | None, str | None, str, str]:

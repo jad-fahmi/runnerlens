@@ -43,11 +43,11 @@ def test_compare_receipts_reports_only_observed_dependency_changes() -> None:
     assert "changed   cmake (3.28.1 -> 3.30.2)" in report
 
 
-def test_image_impact_preserves_unknown_metadata_as_unavailable() -> None:
+def test_image_impact_excludes_non_ambient_dependencies() -> None:
     receipt = _receipt(
         [
             Dependency("cmake", "/usr/bin/cmake", "runner-provided", "probable", version="3.28.1"),
-            Dependency("custom-tool", "/usr/bin/custom-tool", "unknown", "unknown", version="1.0.0"),
+            Dependency("custom-tool", "/work/scripts/custom-tool", "repository-provided", "confirmed", version="1.0.0"),
         ],
         "20260901.1",
     )
@@ -62,7 +62,6 @@ def test_image_impact_preserves_unknown_metadata_as_unavailable() -> None:
 
     assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
         ("cmake", "version-changed"),
-        ("custom-tool", "metadata-unavailable"),
     ]
 
 
@@ -128,4 +127,25 @@ def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> N
 
     assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
         ("g++-14", "changed"),
+    ]
+
+
+def test_compare_runner_images_uses_cached_tool_metadata_for_tool_cache_paths() -> None:
+    receipt = _receipt(
+        [Dependency("python", "/opt/hostedtoolcache/Python/3.11.16/x64/bin/python", "tool-cache", "confirmed")],
+        "20260901.1",
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260901.1", source_url="https://example.test/baseline",
+        tools={"python": ("3.12.3",)}, cached_tools={"python": ("3.11.16",)},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24", release="ubuntu24/20260922.1", source_url="https://example.test/target",
+        tools={"python": ("3.13.0",)}, cached_tools={"python": ("3.11.16",)},
+    )
+
+    impact = compare_runner_images(receipt, baseline, target)
+
+    assert [(item.dependency.name, item.status, item.target_versions) for item in impact.dependencies] == [
+        ("python", "unchanged", ("3.11.16",)),
     ]

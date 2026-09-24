@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -21,6 +21,7 @@ class GitHubImageManifest:
     release: str
     source_url: str
     tools: dict[str, tuple[str, ...]]
+    cached_tools: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def normalize_ubuntu_image(image: str) -> str:
@@ -62,6 +63,7 @@ def fetch_ubuntu_manifest(image: str, image_version: str, timeout: float = 10) -
         release=tag,
         source_url=source_url,
         tools=parse_ubuntu_software_report(content),
+        cached_tools=parse_ubuntu_cached_tools(content),
     )
 
 
@@ -97,7 +99,9 @@ def parse_ubuntu_software_report(markdown: str) -> dict[str, tuple[str, ...]]:
     return tools
 
 
-def manifest_versions(manifest: GitHubImageManifest, executable: str) -> tuple[str, ...] | None:
+def manifest_versions(
+    manifest: GitHubImageManifest, executable: str, path: str | None = None
+) -> tuple[str, ...] | None:
     """Find documented versions for an observed executable, including core aliases."""
     normalized = _normalize_tool_name(executable)
     aliases = {
@@ -116,9 +120,47 @@ def manifest_versions(manifest: GitHubImageManifest, executable: str) -> tuple[s
         "go": ("go",),
     }
     for candidate in _manifest_candidates(executable, normalized, aliases):
+        if _is_hosted_tool_cache_path(path) and candidate in manifest.cached_tools:
+            return manifest.cached_tools[candidate]
         if candidate in manifest.tools:
             return manifest.tools[candidate]
     return None
+
+
+def parse_ubuntu_cached_tools(markdown: str) -> dict[str, tuple[str, ...]]:
+    """Parse version-only entries nested below a GitHub Ubuntu Cached Tools heading."""
+    tools: dict[str, tuple[str, ...]] = {}
+    cached_tools_heading_level: int | None = None
+    current_tool: str | None = None
+
+    for line in markdown.splitlines():
+        heading = re.match(r"^(?P<marks>#{1,6})\s+(?P<text>.+?)\s*$", line)
+        if heading:
+            level = len(heading.group("marks"))
+            text = heading.group("text").replace("**", "")
+            if _normalize_tool_name(text) == "cachedtools":
+                cached_tools_heading_level = level
+                current_tool = None
+            elif cached_tools_heading_level is not None and level <= cached_tools_heading_level:
+                cached_tools_heading_level = None
+                current_tool = None
+            elif cached_tools_heading_level is not None:
+                current_tool = _normalize_tool_name(text)
+            continue
+
+        if cached_tools_heading_level is None or current_tool is None:
+            continue
+        stripped_line = line.lstrip()
+        if not (stripped_line.startswith("*") or stripped_line.startswith("- ")):
+            continue
+        text = stripped_line.lstrip("*-").strip().replace("**", "")
+        if not _VERSION_RE.match(text):
+            continue
+        versions = tuple(match.group(1) for match in _VERSION_RE.finditer(text))
+        if versions:
+            tools[current_tool] = (*tools.get(current_tool, ()), *versions)
+
+    return tools
 
 
 def _manifest_candidates(
@@ -135,3 +177,7 @@ def _manifest_candidates(
 
 def _normalize_tool_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def _is_hosted_tool_cache_path(path: str | None) -> bool:
+    return bool(path and "/hostedtoolcache/" in path.lower())
