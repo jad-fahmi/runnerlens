@@ -124,7 +124,7 @@ jobs:
           output: public-fmt-receipt.json
       - name: Verify observed runner dependencies
         run: >-
-          python -c "import json; dependencies = json.load(open('public-fmt-receipt.json'))['dependencies']; names = {item['name']: item for item in dependencies}; assert names['cmake']['origin'] == 'runner-provided'; assert names['ninja']['origin'] == 'runner-provided'"
+          python -c "import json; dependencies = json.load(open('public-fmt-receipt.json'))['dependencies']; names = {item['name']: item for item in dependencies}; assert names['cmake']['origin'] == 'runner-provided'; assert names['ninja']['origin'] == 'runner-provided'; assert any(name in names for name in ('c++', 'g++', 'gcc', 'clang++', 'clang'))"
       - uses: actions/upload-artifact@v4
         with:
           name: public-fmt-receipt
