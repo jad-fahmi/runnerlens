@@ -59,6 +59,7 @@ class ExecutionEvent:
     pid: int | None = None
     parent_pid: int | None = None
     observation: str = "subprocess-root"
+    role: str = "build-tool"
 
     def to_dict(self) -> dict[str, Any]:
         return _without_none(
@@ -68,6 +69,7 @@ class ExecutionEvent:
                 "pid": self.pid,
                 "parent_pid": self.parent_pid,
                 "observation": self.observation,
+                "role": self.role,
             }
         )
 

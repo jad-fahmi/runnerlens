@@ -39,7 +39,7 @@ runs:
         RUNNERLENS_CONTAINERIZED: ${{ inputs.container }}
       run: |
         set +e
-        runnerlens run --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
+        runnerlens run --root-is-launcher --output "$RUNNERLENS_OUTPUT" -- bash -o pipefail -c "$RUNNERLENS_COMMAND"
         exit_code=$?
         runnerlens show "$RUNNERLENS_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
         if [ -n "$RUNNERLENS_BASELINE" ]; then

@@ -65,6 +65,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="record that the wrapped command executes inside a container",
     )
     run.add_argument(
+        "--root-is-launcher",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    run.add_argument(
+        "--include-support-tools",
+        action="store_true",
+        help="include routine shell and text utilities in dependency output",
+    )
+    run.add_argument(
         "--json",
         action="store_true",
         help="print the JSON receipt instead of the human report",
@@ -106,13 +116,22 @@ def run_command(args: argparse.Namespace) -> int:
         print("runnerlens run requires a command, for example: runnerlens run -- make", file=sys.stderr)
         return 2
 
-    observation = observe_command(wrapped_command, cwd=Path.cwd())
+    observation = observe_command(
+        wrapped_command,
+        cwd=Path.cwd(),
+        root_is_launcher=args.root_is_launcher,
+    )
     receipt_env = dict(os.environ)
     if args.workflow_provisioned_path:
         receipt_env["RUNNERLENS_WORKFLOW_PROVISIONED_PATHS"] = os.pathsep.join(args.workflow_provisioned_path)
     if args.container:
         receipt_env["RUNNERLENS_CONTAINERIZED"] = "true"
-    receipt = build_receipt(observation, repository_root=Path.cwd(), env=receipt_env)
+    receipt = build_receipt(
+        observation,
+        repository_root=Path.cwd(),
+        env=receipt_env,
+        include_support_tools=args.include_support_tools,
+    )
     write_receipt(receipt, Path(args.output))
 
     if args.json:
