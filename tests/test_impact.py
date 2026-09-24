@@ -82,7 +82,7 @@ def test_new_ambient_dependencies_excludes_unknown_and_repository_tools() -> Non
     assert [change.name for change in changes] == ["cmake", "python"]
 
 
-def test_compare_runner_images_filters_changes_to_observed_dependencies() -> None:
+def test_compare_runner_images_filters_changes_to_observed_ambient_dependencies() -> None:
     receipt = _receipt(
         [
             Dependency("cmake", "/usr/bin/cmake", "runner-provided", "probable"),
@@ -105,7 +105,6 @@ def test_compare_runner_images_filters_changes_to_observed_dependencies() -> Non
     assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
         ("cmake", "changed"),
         ("ninja", "removed"),
-        ("unknown-tool", "metadata-unavailable"),
     ]
 
 
