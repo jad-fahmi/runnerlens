@@ -20,6 +20,10 @@ The `runner-image-metadata` CI job compares the public GitHub Ubuntu 24 image
 releases `20260831.293` and `20260907.300` using a recorded Cargo receipt. The
 expected result is Cargo `1.98.0` changing to `1.98.1`.
 
+The same job reads the retained Ubuntu 22 release `20220515.1`, whose inventory
+uses the legacy `images/linux/Ubuntu2204-Readme.md` location. This keeps
+historical inventory lookup covered without inferring a missing release tag.
+
 ## Next Cases
 
 Add public repositories from different build ecosystems and historical

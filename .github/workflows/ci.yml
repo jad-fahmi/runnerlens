@@ -99,6 +99,11 @@ jobs:
             --baseline-image-version 20260831.293.1 \
             --target-image-version 20260907.300.1 > runner-image-impact.txt
           grep -F "changed              cargo" runner-image-impact.txt
+      - name: Read a retained legacy Ubuntu runner-image inventory
+        run: |
+          runnerlens impact tests/fixtures/receipts/ubuntu22-cmake.json \
+            --target-image-version 20220515.1 > legacy-runner-image-impact.txt
+          grep -F "images/linux/Ubuntu2204-Readme.md" legacy-runner-image-impact.txt
 
   public-repository-validation:
     runs-on: ubuntu-24.04
