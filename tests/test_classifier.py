@@ -23,13 +23,37 @@ def test_repository_path_is_confirmed_repository_provided(tmp_path: Path) -> Non
 def test_github_actions_system_path_is_probable_runner_provided(tmp_path: Path) -> None:
     dependency = classify_event(
         ExecutionEvent(executable="cmake", path="/usr/bin/cmake"),
-        RunnerInfo(provider="github-actions", os="Linux"),
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
         tmp_path,
         {},
     )
 
     assert dependency.origin == "runner-provided"
     assert dependency.confidence == "probable"
+
+
+def test_self_hosted_github_actions_system_path_stays_unknown(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="cmake", path="/usr/bin/cmake"),
+        RunnerInfo(provider="github-actions", os="Linux", environment="self-hosted"),
+        tmp_path,
+        {},
+    )
+
+    assert dependency.origin == "unknown"
+    assert dependency.confidence == "unknown"
+
+
+def test_github_actions_without_hosted_evidence_stays_unknown(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="cmake", path="/usr/bin/cmake"),
+        RunnerInfo(provider="github-actions", os="Linux"),
+        tmp_path,
+        {},
+    )
+
+    assert dependency.origin == "unknown"
+    assert dependency.confidence == "unknown"
 
 
 def test_local_system_path_stays_unknown(tmp_path: Path) -> None:
