@@ -17,6 +17,18 @@ def test_detect_version_returns_a_parsed_version(tmp_path: Path, monkeypatch) ->
     assert resolver.detect_version(str(executable)) == "3.30.2"
 
 
+def test_detect_version_parses_go_version_format(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "go"
+    executable.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        resolver.subprocess,
+        "run",
+        lambda *args, **kwargs: CompletedProcess(args[0], 0, "go version go1.26.8 linux/amd64\n"),
+    )
+
+    assert resolver.detect_version(str(executable)) == "1.26.8"
+
+
 def test_detect_version_omits_unreliable_results(tmp_path: Path, monkeypatch) -> None:
     executable = tmp_path / "tool"
     executable.write_text("", encoding="utf-8")

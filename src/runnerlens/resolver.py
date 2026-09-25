@@ -12,6 +12,7 @@ from runnerlens.models import Dependency
 
 
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
+_GO_VERSION_RE = re.compile(r"\bgo(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)\b")
 RESOLVABLE_ORIGINS = frozenset({"runner-provided", "tool-cache"})
 
 
@@ -55,7 +56,7 @@ def detect_version(path: str | None) -> str | None:
 
     if completed.returncode != 0:
         return None
-    match = _VERSION_RE.search(completed.stdout)
+    match = _VERSION_RE.search(completed.stdout) or _GO_VERSION_RE.search(completed.stdout)
     return match.group(1) if match else None
 
 
