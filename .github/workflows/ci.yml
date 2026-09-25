@@ -160,7 +160,9 @@ jobs:
           git -C go-cmp-fixture checkout c3ad8435e7bef96af35732bc0789e5a2278c6d5f
       - uses: ./
         with:
-          command: go test ./...
+          command: |
+            cd go-cmp-fixture
+            go test ./...
           output: public-go-cmp-receipt.json
       - name: Verify observed runner dependency
         run: >-
