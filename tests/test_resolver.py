@@ -29,6 +29,21 @@ def test_detect_version_parses_go_version_format(tmp_path: Path, monkeypatch) ->
     assert resolver.detect_version(str(executable)) == "1.26.8"
 
 
+def test_detect_version_uses_go_version_subcommand(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "go"
+    executable.write_text("", encoding="utf-8")
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        return CompletedProcess(command, 0, "go version go1.26.8 linux/amd64\n")
+
+    monkeypatch.setattr(resolver.subprocess, "run", fake_run)
+
+    assert resolver.detect_version(str(executable)) == "1.26.8"
+    assert commands == [[str(executable), "version"]]
+
+
 def test_detect_version_omits_unreliable_results(tmp_path: Path, monkeypatch) -> None:
     executable = tmp_path / "tool"
     executable.write_text("", encoding="utf-8")
