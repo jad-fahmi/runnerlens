@@ -100,7 +100,10 @@ def parse_ubuntu_software_report(markdown: str) -> dict[str, tuple[str, ...]]:
 
 
 def manifest_versions(
-    manifest: GitHubImageManifest, executable: str, path: str | None = None
+    manifest: GitHubImageManifest,
+    executable: str,
+    path: str | None = None,
+    origin: str | None = None,
 ) -> tuple[str, ...] | None:
     """Find documented versions for an observed executable, including core aliases."""
     normalized = _normalize_tool_name(executable)
@@ -120,7 +123,7 @@ def manifest_versions(
         "go": ("go",),
     }
     for candidate in _manifest_candidates(executable, normalized, aliases):
-        if _is_hosted_tool_cache_path(path) and candidate in manifest.cached_tools:
+        if _is_tool_cache_dependency(path, origin) and candidate in manifest.cached_tools:
             return manifest.cached_tools[candidate]
         if candidate in manifest.tools:
             return manifest.tools[candidate]
@@ -179,5 +182,5 @@ def _normalize_tool_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
-def _is_hosted_tool_cache_path(path: str | None) -> bool:
-    return bool(path and "/hostedtoolcache/" in path.lower())
+def _is_tool_cache_dependency(path: str | None, origin: str | None) -> bool:
+    return origin == "tool-cache" or bool(path and "/hostedtoolcache/" in path.lower())

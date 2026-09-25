@@ -82,6 +82,10 @@ def test_parse_cached_tools_and_match_tool_cache_executable() -> None:
         "3.12.14",
     )
     assert manifest_versions(manifest, "python", "/usr/bin/python3") == ("3.12.3",)
+    assert manifest_versions(manifest, "python", "/usr/bin/python3", "tool-cache") == (
+        "3.11.16",
+        "3.12.14",
+    )
 
 
 def test_fetch_ubuntu_manifest_uses_legacy_linux_path_when_needed(monkeypatch) -> None:
