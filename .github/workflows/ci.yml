@@ -149,3 +149,23 @@ jobs:
         with:
           name: public-ripgrep-receipt
           path: public-ripgrep-receipt.json
+
+  public-go-validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch a pinned public Go project
+        run: |
+          git clone --no-checkout https://github.com/google/go-cmp.git go-cmp-fixture
+          git -C go-cmp-fixture checkout c3ad8435e7bef96af35732bc0789e5a2278c6d5f
+      - uses: ./
+        with:
+          command: go test ./...
+          output: public-go-cmp-receipt.json
+      - name: Verify observed runner dependency
+        run: >-
+          python -c "import json; dependencies = json.load(open('public-go-cmp-receipt.json'))['dependencies']; go = next(item for item in dependencies if item['name'] == 'go'); assert go['origin'] == 'tool-cache'; assert go['version']"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-go-cmp-receipt
+          path: public-go-cmp-receipt.json
