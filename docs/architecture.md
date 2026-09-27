@@ -64,8 +64,8 @@ system path.
 
 `runnerlens run --container` records a separate explicit execution boundary.
 For such a run, external executable paths are classified as `container-provided`
-instead of runner-provided. RunnerLens does not infer container execution from
-an incidental filesystem marker.
+instead of runner-provided or tool-cache. RunnerLens does not infer container
+execution from an incidental filesystem marker.
 
 `runnerlens compare` compares two receipts and reports observed dependencies as
 added, removed, changed, or unchanged. It does not claim that a changed tool was

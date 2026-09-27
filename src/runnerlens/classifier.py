@@ -68,14 +68,14 @@ def classify_event(
         origin = "workflow-provisioned"
         confidence = "confirmed"
         evidence.append("path was declared as workflow-provisioned")
-    elif path and _is_tool_cache(path, env):
-        origin = "tool-cache"
-        confidence = "confirmed"
-        evidence.append("path is inside hosted tool cache")
     elif path and _is_containerized(env):
         origin = "container-provided"
         confidence = "confirmed"
         evidence.append("container execution was explicitly declared")
+    elif path and _is_tool_cache(path, env):
+        origin = "tool-cache"
+        confidence = "confirmed"
+        evidence.append("path is inside hosted tool cache")
     elif _is_github_hosted_runner(runner) and path and _has_hosted_runner_prefix(path):
         origin = "runner-provided"
         confidence = "probable"
