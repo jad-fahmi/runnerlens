@@ -43,6 +43,24 @@ def test_compare_receipts_reports_only_observed_dependency_changes() -> None:
     assert "changed   cmake (3.28.1 -> 3.30.2)" in report
 
 
+def test_compare_receipts_preserves_same_name_path_switches() -> None:
+    baseline = _receipt(
+        [Dependency("python", "/usr/bin/python", "runner-provided", "probable", version="3.12.3")],
+        "20260901.1",
+    )
+    target = _receipt(
+        [Dependency("python", "/opt/hostedtoolcache/Python/3.13/bin/python", "tool-cache", "confirmed", version="3.13.0")],
+        "20260922.1",
+    )
+
+    impact = compare_receipts(baseline, target)
+
+    assert {(item.status, item.baseline.path if item.baseline else None, item.target.path if item.target else None) for item in impact.dependencies} == {
+        ("removed", "/usr/bin/python", None),
+        ("added", None, "/opt/hostedtoolcache/Python/3.13/bin/python"),
+    }
+
+
 def test_image_impact_excludes_non_ambient_dependencies() -> None:
     receipt = _receipt(
         [

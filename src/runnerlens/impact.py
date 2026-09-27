@@ -109,14 +109,15 @@ class RunnerImageImpact:
 
 
 def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
-    """Compare observed tools by name, preserving both sides as evidence."""
-    baseline_dependencies = _by_name(baseline.dependencies)
-    target_dependencies = _by_name(target.dependencies)
+    """Compare observed tools by executable identity, preserving each path."""
+    baseline_dependencies = _by_identity(baseline.dependencies)
+    target_dependencies = _by_identity(target.dependencies)
     impacts: list[DependencyImpact] = []
 
-    for name in sorted(baseline_dependencies.keys() | target_dependencies.keys()):
-        before = baseline_dependencies.get(name)
-        after = target_dependencies.get(name)
+    identities = baseline_dependencies.keys() | target_dependencies.keys()
+    for identity in sorted(identities, key=lambda item: (item[0], item[1] or "")):
+        before = baseline_dependencies.get(identity)
+        after = target_dependencies.get(identity)
         if before is None:
             status = "added"
         elif after is None:
@@ -125,7 +126,7 @@ def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
             status = "unchanged"
         else:
             status = "changed"
-        impacts.append(DependencyImpact(name=name, status=status, baseline=before, target=after))
+        impacts.append(DependencyImpact(name=identity[0], status=status, baseline=before, target=after))
 
     return ReceiptImpact(
         baseline_runner=baseline.runner,
@@ -215,12 +216,12 @@ def compare_runner_images(
     )
 
 
-def _by_name(dependencies: list[Dependency]) -> dict[str, Dependency]:
-    """Keep ambiguity visible by selecting no arbitrary dependency."""
-    grouped: dict[str, list[Dependency]] = {}
+def _by_identity(dependencies: list[Dependency]) -> dict[tuple[str, str | None], Dependency]:
+    """Index dependencies by executable name and path without hiding path switches."""
+    grouped: dict[tuple[str, str | None], list[Dependency]] = {}
     for dependency in dependencies:
-        grouped.setdefault(dependency.name, []).append(dependency)
-    return {name: items[0] for name, items in grouped.items() if len(items) == 1}
+        grouped.setdefault((dependency.name, dependency.path), []).append(dependency)
+    return {identity: items[0] for identity, items in grouped.items()}
 
 
 def _ambient_dependencies(receipt: Receipt) -> list[Dependency]:
