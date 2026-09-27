@@ -167,6 +167,11 @@ jobs:
       - name: Verify observed runner dependency
         run: >-
           python -c "import json; dependencies = json.load(open('public-go-uuid-receipt.json'))['dependencies']; go = next(item for item in dependencies if item['name'] == 'go'); assert go['origin'] == 'tool-cache'; assert go['version']"
+      - name: Correlate the Go receipt with a pinned runner image
+        run: |
+          runnerlens impact public-go-uuid-receipt.json \
+            --target-image-version 20260920.314.1 > public-go-image-impact.txt
+          grep -F "version-present      go" public-go-image-impact.txt
       - uses: actions/upload-artifact@v4
         with:
           name: public-go-uuid-receipt
