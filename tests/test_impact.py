@@ -147,6 +147,35 @@ def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> N
     ]
 
 
+def test_compare_runner_images_uses_apt_metadata_for_package_owned_dependencies() -> None:
+    receipt = _receipt(
+        [Dependency("crun", "/usr/bin/crun", "runner-provided", "probable", package="crun:amd64")],
+        "20260720.247.2",
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260720.247",
+        source_url="https://example.test/baseline",
+        tools={},
+        apt_packages={"crun": "1.14.1-1ubuntu1"},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260810.271",
+        source_url="https://example.test/target",
+        tools={},
+        apt_packages={"crun": "1.16.1-2"},
+    )
+
+    impact = compare_runner_images(receipt, baseline, target)
+
+    assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
+        ("crun", "changed"),
+    ]
+    assert impact.dependencies[0].baseline_versions == ("1.14.1-1ubuntu1",)
+    assert impact.dependencies[0].target_versions == ("1.16.1-2",)
+
+
 def test_compare_runner_images_uses_cached_tool_metadata_for_tool_cache_paths() -> None:
     receipt = _receipt(
         [Dependency("python", "/usr/bin/python", "tool-cache", "confirmed")],
