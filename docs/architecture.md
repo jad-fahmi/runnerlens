@@ -49,8 +49,11 @@ For commands that rely on such helpers, `runnerlens run --no-process-tree`
 avoids ptrace and records the wrapped command only with the explicit
 `subprocess-root-only` observation label. RunnerLens does not elevate the
 tracer to preserve those privileges.
-This escape hatch is currently CLI-only. The composite action launches the
-supplied script through Bash and continues to use process-tree observation.
+The composite action exposes `process-tree-observation: false` for the same
+privilege-sensitive case. Since the action launches the supplied script
+through Bash, that mode records only the Bash wrapper. It does not claim to
+identify commands invoked inside the script; use the CLI mode for direct
+command identity when possible.
 
 After classification, RunnerLens asks an observed absolute executable for its
 standard version output (`--version`, or `go version` for Go), and queries

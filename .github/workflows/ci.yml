@@ -36,6 +36,14 @@ jobs:
         run: python -c "import json; dependencies = json.load(open('runnerlens-action-receipt.json'))['dependencies']; assert dependencies; assert any(item['name'] == 'python' for item in dependencies); assert not any(item['name'] == 'bash' for item in dependencies)"
       - name: Verify Linux process-tree evidence
         run: python -c "import json; receipt = json.load(open('runnerlens-action-receipt.json')); assert any(event['observation'] == 'strace-execve' for event in receipt['events']); assert any(event.get('parent_pid') is not None for event in receipt['events'])"
+      - name: Exercise the action's explicit root-only mode
+        uses: ./
+        with:
+          command: python --version
+          output: runnerlens-root-only-receipt.json
+          process-tree-observation: false
+      - name: Verify the action labels its wrapper-only evidence
+        run: python -c "import json; receipt = json.load(open('runnerlens-root-only-receipt.json')); assert receipt['exit_code'] == 0; assert receipt['events'][0]['executable'] == 'bash'; assert receipt['events'][0]['observation'] == 'subprocess-root-only'; assert 'python' not in {item['name'] for item in receipt['dependencies']}"
       - name: Verify wrapped command completed
         run: test "$(cat runnerlens-smoke.txt)" = "ok"
       - name: Accept the first receipt as a baseline
