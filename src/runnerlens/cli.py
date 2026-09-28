@@ -75,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="include routine shell and text utilities in dependency output",
     )
     run.add_argument(
+        "--no-process-tree",
+        action="store_true",
+        help="observe only the wrapped command, preserving setuid/setgid helper behavior",
+    )
+    run.add_argument(
         "--json",
         action="store_true",
         help="print the JSON receipt instead of the human report",
@@ -120,6 +125,7 @@ def run_command(args: argparse.Namespace) -> int:
         wrapped_command,
         cwd=Path.cwd(),
         root_is_launcher=args.root_is_launcher,
+        trace_process_tree=not args.no_process_tree,
     )
     receipt_env = dict(os.environ)
     if args.workflow_provisioned_path:

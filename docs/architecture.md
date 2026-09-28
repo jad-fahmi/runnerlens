@@ -43,6 +43,14 @@ from the wrapped command's process tree. Elsewhere, it records only the wrapped
 root command and labels that lower-coverage observation method in the receipt.
 If `strace` completes without any parseable execution events, RunnerLens also
 retains the root command with a `subprocess-root-fallback` observation label.
+Ptrace changes setuid and setgid execution: by default, traced privileged
+programs run without their effective privileges ([strace manual](https://man7.org/linux/man-pages/man1/strace.1.html)).
+For commands that rely on such helpers, `runnerlens run --no-process-tree`
+avoids ptrace and records the wrapped command only with the explicit
+`subprocess-root-only` observation label. RunnerLens does not elevate the
+tracer to preserve those privileges.
+This escape hatch is currently CLI-only. The composite action launches the
+supplied script through Bash and continues to use process-tree observation.
 
 After classification, RunnerLens asks an observed absolute executable for its
 standard version output (`--version`, or `go version` for Go), and queries

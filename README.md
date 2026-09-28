@@ -48,6 +48,18 @@ RunnerLens wraps an existing build or test command and writes a receipt to `runn
 runnerlens run -- make
 ```
 
+For a command that relies on setuid or setgid helpers, process tracing can
+change its privilege behavior. Use `--no-process-tree` to run it without ptrace
+and record only the wrapped executable, with the lower coverage marked in the
+receipt:
+
+```text
+runnerlens run --no-process-tree -- podman run --rm alpine echo hello
+```
+
+This option is currently CLI-only. The composite action wraps scripts in Bash
+and continues to use process-tree observation.
+
 If a preceding workflow step provisioned a tool outside the checkout, declare
 that path as evidence so RunnerLens does not mistake it for a base-image tool:
 

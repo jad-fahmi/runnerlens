@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 from runnerlens.cli import main
@@ -12,6 +13,27 @@ def test_version_command_prints_version(capsys) -> None:
 
     assert exit_code == 0
     assert captured.out.strip()
+
+
+def test_run_command_supports_explicit_root_only_observation(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "root-only-receipt.json"
+
+    exit_code = main(
+        [
+            "run",
+            "--no-process-tree",
+            "--output",
+            str(receipt_path),
+            "--",
+            sys.executable,
+            "--version",
+        ]
+    )
+
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    capsys.readouterr()
+    assert exit_code == 0
+    assert receipt["events"][0]["observation"] == "subprocess-root-only"
 
 
 def test_show_command_renders_human_readable_receipt(tmp_path: Path, capsys) -> None:
