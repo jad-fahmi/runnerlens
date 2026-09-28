@@ -35,7 +35,11 @@ The `runner-image-metadata` CI job also captures a live receipt from
 receipt with the exact image version reported to the workflow and uploads the
 JSON receipt as an artifact. This checks actual process observation, version
 resolution, runner provenance, and image metadata together, separately from
-the labeled historical reconstruction below.
+the labeled historical reconstruction below. A second live command runs a
+digest-pinned Alpine image with Podman and verifies that the actual OCI runtime
+child process, path, version, and runner-provided origin appear in the receipt.
+This exercises the runtime-selection path implicated in issue #14473 rather
+than only observing Podman's version command.
 
 The `runner-image-metadata` CI job compares the public GitHub Ubuntu 24 image
 releases `20260831.293` and `20260907.300` using a recorded Cargo receipt. The
