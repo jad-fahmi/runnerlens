@@ -170,7 +170,8 @@ def test_check_command_fails_for_new_runner_dependency(tmp_path: Path, capsys) -
         json.dumps(
             {
                 "schema_version": "0.1.0", "started_at": "2026-09-21T00:00:00+00:00", "ended_at": "2026-09-21T00:00:01+00:00", "exit_code": 0,
-                "runner": {"provider": "github-actions"}, "command": {"executable": "make", "arguments_recorded": False}, "dependencies": [], "events": [],
+                "runner": {"provider": "github-actions"}, "command": {"executable": "make", "arguments_recorded": False}, "dependencies": [],
+                "events": [{"executable": "make", "path": "/usr/bin/make", "observation": "strace-execve"}],
             }
         ),
         encoding="utf-8",
@@ -180,7 +181,11 @@ def test_check_command_fails_for_new_runner_dependency(tmp_path: Path, capsys) -
             {
                 "schema_version": "0.1.0", "started_at": "2026-09-21T00:00:00+00:00", "ended_at": "2026-09-21T00:00:01+00:00", "exit_code": 0,
                 "runner": {"provider": "github-actions"}, "command": {"executable": "make", "arguments_recorded": False},
-                "dependencies": [{"name": "cmake", "path": "/usr/bin/cmake", "origin": "runner-provided", "confidence": "probable"}], "events": [],
+                "dependencies": [{"name": "cmake", "path": "/usr/bin/cmake", "origin": "runner-provided", "confidence": "probable"}],
+                "events": [
+                    {"executable": "make", "path": "/usr/bin/make", "observation": "strace-execve"},
+                    {"executable": "cmake", "path": "/usr/bin/cmake", "observation": "strace-execve"},
+                ],
             }
         ),
         encoding="utf-8",
@@ -192,3 +197,34 @@ def test_check_command_fails_for_new_runner_dependency(tmp_path: Path, capsys) -
     assert exit_code == 1
     assert "New ambient dependencies:" in captured.out
     assert "cmake" in captured.out
+
+
+def test_check_command_fails_inconclusively_for_root_only_receipt(tmp_path: Path, capsys) -> None:
+    baseline_path = tmp_path / "baseline.json"
+    target_path = tmp_path / "target.json"
+    common = {
+        "schema_version": "0.1.0",
+        "started_at": "2026-09-21T00:00:00+00:00",
+        "ended_at": "2026-09-21T00:00:01+00:00",
+        "exit_code": 0,
+        "runner": {"provider": "github-actions"},
+        "command": {"executable": "bash", "arguments_recorded": False},
+        "dependencies": [],
+    }
+    baseline = {
+        **common,
+        "events": [{"executable": "bash", "path": "/usr/bin/bash", "observation": "strace-execve"}],
+    }
+    target = {
+        **common,
+        "events": [{"executable": "bash", "path": "/usr/bin/bash", "observation": "subprocess-root-only"}],
+    }
+    baseline_path.write_text(json.dumps(baseline), encoding="utf-8")
+    target_path.write_text(json.dumps(target), encoding="utf-8")
+
+    exit_code = main(["check", str(baseline_path), str(target_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "baseline=process-tree, target=root-only" in captured.out
+    assert "check is inconclusive" in captured.out

@@ -99,11 +99,18 @@ Fail CI when a build introduces a new runner-provided or tool-cache dependency:
 runnerlens check baseline-receipt.json runnerlens-receipt.json
 ```
 
+`runnerlens check` returns an inconclusive exit status if either receipt did
+not capture the full process tree. A root-only or fallback receipt cannot prove
+that no child dependencies were added.
+
 Check observed tools against a specific GitHub Ubuntu runner-image release:
 
 ```text
 runnerlens impact runnerlens-receipt.json --target-image-version 20260907.131.1
 ```
+
+Image impact reports include observation coverage and warn when child-process
+dependencies may be missing.
 
 Compare two runner-image releases, narrowed to the tools in your receipt:
 
@@ -133,8 +140,9 @@ Because the action wraps scripts in Bash, this mode records only the Bash
 wrapper and does not identify tools invoked inside the script. Use the CLI's
 `--no-process-tree` mode for a direct command receipt when possible.
 When `baseline` is set, a successful build fails if it introduces a new
-runner-provided or tool-cache dependency. A failing wrapped build retains its
-own exit status regardless of the baseline result.
+runner-provided or tool-cache dependency, or if the comparison is inconclusive
+because either receipt lacks complete process-tree observation. A failing
+wrapped build retains its own exit status regardless of the baseline result.
 `workflow-provisioned-paths` accepts colon-separated Linux paths from earlier
 workflow steps and records matching executables as `workflow-provisioned`.
 Set `container: true` only for commands running in a workflow container. It

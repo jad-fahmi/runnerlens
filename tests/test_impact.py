@@ -1,7 +1,11 @@
 from runnerlens.github import GitHubImageManifest
 from runnerlens.impact import compare_receipts, compare_runner_images, correlate_receipt_with_image, newly_observed_ambient_dependencies
-from runnerlens.models import Dependency, ObservedCommand, Receipt, RunnerInfo
-from runnerlens.report import render_impact_report
+from runnerlens.models import Dependency, ExecutionEvent, ObservedCommand, Receipt, RunnerInfo
+from runnerlens.report import (
+    render_image_impact_report,
+    render_impact_report,
+    render_runner_image_impact_report,
+)
 
 
 def _receipt(dependencies: list[Dependency], version: str) -> Receipt:
@@ -182,6 +186,50 @@ def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> N
     assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
         ("g++-14", "changed"),
     ]
+
+
+def test_image_impacts_preserve_and_warn_about_root_only_coverage() -> None:
+    receipt = _receipt(
+        [Dependency("podman", "/usr/bin/podman", "runner-provided", "probable", version="4.9.3")],
+        "20260907.300.1",
+    )
+    receipt = Receipt(
+        runner=receipt.runner,
+        command=receipt.command,
+        dependencies=receipt.dependencies,
+        events=[
+            ExecutionEvent(
+                executable="podman",
+                path="/usr/bin/podman",
+                observation="subprocess-root-only",
+            )
+        ],
+        started_at=receipt.started_at,
+        ended_at=receipt.ended_at,
+        exit_code=receipt.exit_code,
+    )
+    baseline = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260831.293",
+        source_url="https://example.test/baseline",
+        tools={"podman": ("4.9.3",)},
+    )
+    target = GitHubImageManifest(
+        image="ubuntu24",
+        release="ubuntu24/20260907.300",
+        source_url="https://example.test/target",
+        tools={"podman": ("4.9.3",)},
+    )
+
+    image_impact = correlate_receipt_with_image(receipt, target)
+    comparison = compare_runner_images(receipt, baseline, target)
+
+    assert image_impact.observation_coverage == "root-only"
+    assert image_impact.to_dict()["observation_coverage"] == "root-only"
+    assert "unobserved child dependencies are not represented" in render_image_impact_report(image_impact)
+    assert comparison.observation_coverage == "root-only"
+    assert comparison.to_dict()["observation_coverage"] == "root-only"
+    assert "unobserved child dependencies are not represented" in render_runner_image_impact_report(comparison)
 
 
 def test_compare_runner_images_uses_apt_metadata_for_package_owned_dependencies() -> None:

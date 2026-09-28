@@ -70,6 +70,7 @@ def render_impact_report(impact: ReceiptImpact) -> str:
         "",
         f"Baseline runner: {_runner_label(impact.baseline_runner)}",
         f"Target runner:   {_runner_label(impact.target_runner)}",
+        f"Observation coverage: baseline={impact.baseline_coverage}, target={impact.target_coverage}",
         "",
     ]
     counts = {status: 0 for status in ("added", "removed", "changed", "unchanged")}
@@ -90,12 +91,33 @@ def render_impact_report(impact: ReceiptImpact) -> str:
             "Summary: " + ", ".join(f"{counts[status]} {status}" for status in counts),
         ]
     )
+    if impact.baseline_coverage != "process-tree" or impact.target_coverage != "process-tree":
+        lines.extend(
+            [
+                "",
+                "Warning: one or both receipts lack complete process-tree observation;",
+                "an empty dependency delta does not establish that no dependencies changed.",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
 def render_baseline_report(impact: ReceiptImpact) -> str:
     new_dependencies = newly_observed_ambient_dependencies(impact)
-    lines = ["RunnerLens baseline check", "========================", ""]
+    lines = [
+        "RunnerLens baseline check",
+        "========================",
+        "",
+        f"Observation coverage: baseline={impact.baseline_coverage}, target={impact.target_coverage}",
+        "",
+    ]
+    if impact.baseline_coverage != "process-tree" or impact.target_coverage != "process-tree":
+        lines.extend(
+            [
+                "Warning: check is inconclusive because one or both receipts lack complete process-tree observation.",
+                "",
+            ]
+        )
     if not new_dependencies:
         lines.append("No newly observed runner-provided or tool-cache dependencies.")
     else:
@@ -115,6 +137,7 @@ def render_image_impact_report(impact: ImageImpact) -> str:
         f"Observed runner: {_runner_label(impact.observed_runner)}",
         f"Target release:  {impact.target_release}",
         f"Metadata source: {impact.source_url}",
+        f"Observation coverage: {impact.observation_coverage}",
         "",
     ]
     for item in impact.dependencies:
@@ -126,6 +149,14 @@ def render_image_impact_report(impact: ImageImpact) -> str:
                 f"  observed path: {item.dependency.path or 'unresolved'}",
                 f"  observed:   {observed}",
                 f"  target:     {documented}",
+            ]
+        )
+    if impact.observation_coverage != "process-tree":
+        lines.extend(
+            [
+                "",
+                "Warning: this report is limited by incomplete process-tree observation;",
+                "unobserved child dependencies are not represented.",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -141,6 +172,7 @@ def render_runner_image_impact_report(impact: RunnerImageImpact) -> str:
         f"Target release:   {impact.target_release}",
         f"Baseline source:  {impact.baseline_source_url}",
         f"Target source:    {impact.target_source_url}",
+        f"Observation coverage: {impact.observation_coverage}",
         "",
     ]
     for item in impact.dependencies:
@@ -152,6 +184,14 @@ def render_runner_image_impact_report(impact: RunnerImageImpact) -> str:
                 f"  observed path: {item.dependency.path or 'unresolved'}",
                 f"  baseline:   {baseline}",
                 f"  target:     {target}",
+            ]
+        )
+    if impact.observation_coverage != "process-tree":
+        lines.extend(
+            [
+                "",
+                "Warning: this report is limited by incomplete process-tree observation;",
+                "unobserved child dependencies are not represented.",
             ]
         )
     return "\n".join(lines) + "\n"

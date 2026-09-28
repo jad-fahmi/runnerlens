@@ -120,6 +120,12 @@ jobs:
       - name: Verify root-only receipt preserves the command result
         run: >-
           python -c "import json; receipt = json.load(open('podman-container-receipt.json')); podman = next(item for item in receipt['dependencies'] if item['name'] == 'podman'); assert receipt['exit_code'] == 0; assert podman['origin'] == 'runner-provided'; assert podman['version']; assert receipt['events'][0]['observation'] == 'subprocess-root-only'"
+      - name: Verify image impact reports root-only coverage
+        run: |
+          runnerlens impact podman-container-receipt.json \
+            --target-image-version "${ImageVersion}" > podman-root-only-impact.txt
+          grep -F "Observation coverage: root-only" podman-root-only-impact.txt
+          grep -F "unobserved child dependencies are not represented" podman-root-only-impact.txt
       - uses: actions/upload-artifact@v4
         with:
           name: podman-runtime-receipt
