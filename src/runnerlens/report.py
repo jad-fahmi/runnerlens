@@ -79,6 +79,10 @@ def render_impact_report(impact: ReceiptImpact) -> str:
         after = dependency.target.version if dependency.target else None
         versions = f" ({before or 'unavailable'} -> {after or 'unavailable'})"
         lines.append(f"{dependency.status:9} {dependency.name}{versions}")
+        if dependency.baseline:
+            lines.append(f"  baseline path: {dependency.baseline.path or 'unresolved'}")
+        if dependency.target:
+            lines.append(f"  target path:   {dependency.target.path or 'unresolved'}")
 
     lines.extend(
         [
@@ -116,11 +120,12 @@ def render_image_impact_report(impact: ImageImpact) -> str:
     for item in impact.dependencies:
         observed = item.dependency.version or "unavailable"
         documented = ", ".join(item.documented_versions or ()) or "unavailable"
-        lines.extend(
-            [
-                f"{item.status:20} {item.dependency.name}",
-                f"  observed:   {observed}",
-                f"  target:     {documented}",
+            lines.extend(
+                [
+                    f"{item.status:20} {item.dependency.name}",
+                    f"  observed path: {item.dependency.path or 'unresolved'}",
+                    f"  observed:   {observed}",
+                    f"  target:     {documented}",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -141,11 +146,12 @@ def render_runner_image_impact_report(impact: RunnerImageImpact) -> str:
     for item in impact.dependencies:
         baseline = ", ".join(item.baseline_versions or ()) or "unavailable"
         target = ", ".join(item.target_versions or ()) or "unavailable"
-        lines.extend(
-            [
-                f"{item.status:20} {item.dependency.name}",
-                f"  baseline:   {baseline}",
-                f"  target:     {target}",
+            lines.extend(
+                [
+                    f"{item.status:20} {item.dependency.name}",
+                    f"  observed path: {item.dependency.path or 'unresolved'}",
+                    f"  baseline:   {baseline}",
+                    f"  target:     {target}",
             ]
         )
     return "\n".join(lines) + "\n"

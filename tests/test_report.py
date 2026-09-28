@@ -1,5 +1,6 @@
+from runnerlens.impact import DependencyImpact, ReceiptImpact
 from runnerlens.models import Dependency, ObservedCommand, Receipt, RunnerInfo
-from runnerlens.report import render_report
+from runnerlens.report import render_impact_report, render_report
 
 
 def test_report_includes_dependency_evidence() -> None:
@@ -29,3 +30,27 @@ def test_report_includes_dependency_evidence() -> None:
     assert "package     cmake" in report
     assert "evidence" in report
     assert "observed via strace-execve" in report
+
+
+def test_impact_report_includes_paths_for_same_name_switches() -> None:
+    impact = ReceiptImpact(
+        baseline_runner=RunnerInfo(provider="github-actions", image="ubuntu24"),
+        target_runner=RunnerInfo(provider="github-actions", image="ubuntu24"),
+        dependencies=[
+            DependencyImpact(
+                name="python",
+                status="added",
+                baseline=None,
+                target=Dependency(
+                    name="python",
+                    path="/opt/hostedtoolcache/Python/3.13/bin/python",
+                    origin="tool-cache",
+                    confidence="confirmed",
+                ),
+            )
+        ],
+    )
+
+    report = render_impact_report(impact)
+
+    assert "target path:   /opt/hostedtoolcache/Python/3.13/bin/python" in report
