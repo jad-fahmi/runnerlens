@@ -1,0 +1,37 @@
+{
+  "schema_version": "0.1.0",
+  "started_at": "2026-08-21T00:00:00+00:00",
+  "ended_at": "2026-08-21T00:00:01+00:00",
+  "exit_code": 0,
+  "runner": {
+    "provider": "github-actions",
+    "os": "Linux",
+    "image": "ubuntu-24.04",
+    "image_version": "20260810.271.1"
+  },
+  "command": {
+    "executable": "podman",
+    "resolved_path": "/usr/local/bin/podman",
+    "arguments_recorded": false
+  },
+  "dependencies": [
+    {
+      "name": "podman",
+      "path": "/usr/local/bin/podman",
+      "version": "5.8.4",
+      "origin": "runner-provided",
+      "confidence": "probable",
+      "evidence": [
+        "reconstructed from the public runner-images issue #14604, not captured by RunnerLens"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "executable": "podman",
+      "path": "/usr/local/bin/podman",
+      "observation": "historical-issue-report",
+      "role": "build-tool"
+    }
+  ]
+}

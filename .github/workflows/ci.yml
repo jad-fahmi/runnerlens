@@ -104,6 +104,14 @@ jobs:
           runnerlens impact tests/fixtures/receipts/ubuntu22-cmake.json \
             --target-image-version 20220515.1 > legacy-runner-image-impact.txt
           grep -F "images/linux/Ubuntu2204-Readme.md" legacy-runner-image-impact.txt
+      - name: Replay the public Podman 5.8.4 image regression
+        run: |
+          runnerlens impact tests/fixtures/receipts/ubuntu24-podman-issue-14604.json \
+            --baseline-image-version 20260720.247.2 \
+            --target-image-version 20260810.271.1 > historical-podman-impact.txt
+          grep -F "changed              podman" historical-podman-impact.txt
+          grep -F "baseline:   4.9.3" historical-podman-impact.txt
+          grep -F "target:     5.8.4" historical-podman-impact.txt
 
   public-repository-validation:
     runs-on: ubuntu-24.04
