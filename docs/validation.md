@@ -30,6 +30,13 @@ observed executable path is `/usr/bin/go`.
 
 ## Runner-Image Cases
 
+The `runner-image-metadata` CI job also captures a live receipt from
+`podman --version` on its own GitHub-hosted Ubuntu runner. It correlates that
+receipt with the exact image version reported to the workflow and uploads the
+JSON receipt as an artifact. This checks actual process observation, version
+resolution, runner provenance, and image metadata together, separately from
+the labeled historical reconstruction below.
+
 The `runner-image-metadata` CI job compares the public GitHub Ubuntu 24 image
 releases `20260831.293` and `20260907.300` using a recorded Cargo receipt. The
 expected result is Cargo `1.98.0` changing to `1.98.1`.

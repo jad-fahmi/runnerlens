@@ -93,6 +93,18 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install .
+      - name: Capture a real hosted-runner Podman receipt
+        run: runnerlens run --output live-podman-receipt.json -- podman --version
+      - name: Correlate Podman with this runner's image inventory
+        run: |
+          runnerlens impact live-podman-receipt.json \
+            --target-image-version "${ImageVersion}" > live-podman-impact.txt
+          grep -F "version-present      podman" live-podman-impact.txt
+          grep -F "observed path:" live-podman-impact.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: live-podman-receipt
+          path: live-podman-receipt.json
       - name: Compare a real pinned Ubuntu runner-image update
         run: |
           runnerlens impact tests/fixtures/receipts/ubuntu24-cargo.json \
