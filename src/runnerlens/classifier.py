@@ -118,7 +118,7 @@ def _has_hosted_runner_prefix(path: str) -> bool:
 
 
 def _is_tool_cache(path: str, env: Mapping[str, str]) -> bool:
-    if any(marker in path for marker in TOOL_CACHE_MARKERS):
+    if any(path.startswith(marker) for marker in TOOL_CACHE_MARKERS):
         return True
     tool_dir = env.get("AGENT_TOOLSDIRECTORY") or env.get("RUNNER_TOOL_CACHE")
     return bool(tool_dir and _is_relative_to(Path(path), Path(tool_dir)))

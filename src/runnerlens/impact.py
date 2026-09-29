@@ -166,13 +166,13 @@ def observation_coverage(receipt: Receipt) -> str:
 
 
 def newly_observed_ambient_dependencies(impact: ReceiptImpact) -> list[DependencyImpact]:
-    """Return added dependencies with evidence of runner-environment origin."""
+    """Return dependencies newly identified as runner-environment dependencies."""
     return [
         dependency
         for dependency in impact.dependencies
-        if dependency.status == "added"
-        and dependency.target is not None
+        if dependency.target is not None
         and dependency.target.origin in AMBIENT_ORIGINS
+        and (dependency.baseline is None or dependency.baseline.origin not in AMBIENT_ORIGINS)
     ]
 
 

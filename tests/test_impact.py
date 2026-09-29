@@ -147,6 +147,26 @@ def test_new_ambient_dependencies_excludes_unknown_and_repository_tools() -> Non
     assert [change.name for change in changes] == ["cmake", "python"]
 
 
+def test_new_ambient_dependencies_detects_provenance_changes_at_same_path() -> None:
+    baseline = _receipt(
+        [
+            Dependency("cmake", "/usr/bin/cmake", "workflow-provisioned", "confirmed"),
+            Dependency("ninja", "/usr/bin/ninja", "unknown", "unknown"),
+            Dependency("python", "/usr/bin/python", "tool-cache", "confirmed"),
+        ],
+        "20260901.1",
+    )
+    target = _receipt(
+        [Dependency(name, f"/usr/bin/{name}", "runner-provided", "probable")
+         for name in ("cmake", "ninja", "python")],
+        "20260922.1",
+    )
+
+    changes = newly_observed_ambient_dependencies(compare_receipts(baseline, target))
+
+    assert [change.name for change in changes] == ["cmake", "ninja"]
+
+
 def test_compare_runner_images_filters_changes_to_observed_ambient_dependencies() -> None:
     receipt = _receipt(
         [
@@ -200,23 +220,25 @@ def test_compare_runner_images_ignores_inventory_version_order() -> None:
 
 def test_compare_runner_images_correlates_a_versioned_compiler_executable() -> None:
     receipt = _receipt(
-        [Dependency("g++-14", "/usr/bin/g++-14", "runner-provided", "probable")],
+        [Dependency("g++-14", "/usr/bin/g++-14", "runner-provided", "probable", version="14.2.0")],
         "20260901.1",
     )
     baseline = GitHubImageManifest(
         image="ubuntu24", release="ubuntu24/20260901.1", source_url="https://example.test/baseline",
-        tools={"gnuc": ("13.3.0",)},
+        tools={"gnuc": ("13.3.0", "14.2.0")},
     )
     target = GitHubImageManifest(
         image="ubuntu24", release="ubuntu24/20260922.1", source_url="https://example.test/target",
-        tools={"gnuc": ("14.2.0",)},
+        tools={"gnuc": ("13.3.0",)},
     )
 
     impact = compare_runner_images(receipt, baseline, target)
 
     assert [(item.dependency.name, item.status) for item in impact.dependencies] == [
-        ("g++-14", "changed"),
+        ("g++-14", "removed"),
     ]
+    assert impact.dependencies[0].baseline_versions == ("14.2.0",)
+    assert impact.dependencies[0].target_versions is None
 
 
 def test_image_impacts_preserve_and_warn_about_root_only_coverage() -> None:

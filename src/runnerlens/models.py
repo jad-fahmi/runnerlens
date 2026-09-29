@@ -55,23 +55,24 @@ class ObservedCommand:
 @dataclass(frozen=True)
 class ExecutionEvent:
     executable: str
-    path: str | None
+    path: str | None = None
     pid: int | None = None
     parent_pid: int | None = None
     observation: str = "subprocess-root"
     role: str = "build-tool"
 
     def to_dict(self) -> dict[str, Any]:
-        return _without_none(
+        data = _without_none(
             {
                 "executable": self.executable,
-                "path": self.path,
                 "pid": self.pid,
                 "parent_pid": self.parent_pid,
                 "observation": self.observation,
                 "role": self.role,
             }
         )
+        data["path"] = self.path
+        return data
 
 
 @dataclass(frozen=True)
@@ -94,7 +95,9 @@ class Dependency:
             "confidence": self.confidence,
             "evidence": self.evidence,
         }
-        return _without_none(data)
+        result = _without_none(data)
+        result["path"] = self.path
+        return result
 
 
 @dataclass(frozen=True)

@@ -30,6 +30,10 @@ class Observation:
     exit_code: int
 
 
+class TracingUnavailable(Exception):
+    pass
+
+
 _EXECVE_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?execve\(\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
 )
@@ -60,9 +64,18 @@ def observe_command(
         events, exit_code = _observe_root_command(argv, cwd, resolved_path)
         events = [replace(event, observation="subprocess-root-only") for event in events]
     elif platform.system() == "Linux" and shutil.which("strace"):
-        events, exit_code = _observe_with_strace(argv, cwd)
-        if not events:
-            events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]
+        if not _can_trace_process_tree():
+            events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+            events = [replace(event, observation="subprocess-root-fallback") for event in events]
+        else:
+            try:
+                events, exit_code = _observe_with_strace(argv, cwd)
+            except TracingUnavailable:
+                events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+                events = [replace(event, observation="subprocess-root-fallback") for event in events]
+            else:
+                if not events:
+                    events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]
     else:
         events, exit_code = _observe_root_command(argv, cwd, resolved_path)
 
@@ -99,30 +112,53 @@ def _root_event(executable: str, resolved_path: str | None, observation: str) ->
     )
 
 
+def _can_trace_process_tree() -> bool:
+    try:
+        completed = subprocess.run(
+            ["strace", "-f", "-qq", "-e", "trace=execve", "--", "/bin/true"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
 def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[ExecutionEvent], int]:
     """Run a command under strace and normalize its successful exec events."""
     with tempfile.NamedTemporaryFile(prefix="runnerlens-strace-", delete=False) as trace_file:
         trace_path = Path(trace_file.name)
 
     try:
-        completed = subprocess.run(
-            [
-                "strace",
-                "-f",
-                "-qq",
-                "-e",
-                "trace=execve,execveat,clone,clone3,fork,vfork,getpid",
-                "-s",
-                "0",
-                "-o",
-                str(trace_path),
-                "--",
-                *argv,
-            ],
-            cwd=cwd,
-            check=False,
-        )
-        events = parse_strace_execve(trace_path.read_text(encoding="utf-8", errors="replace"))
+        try:
+            completed = subprocess.run(
+                [
+                    "strace",
+                    "-f",
+                    "-qq",
+                    "-e",
+                    "trace=execve,execveat,clone,clone3,fork,vfork,getpid",
+                    "-s",
+                    "0",
+                    "-o",
+                    str(trace_path),
+                    "--",
+                    *argv,
+                ],
+                cwd=cwd,
+                check=False,
+            )
+        except OSError as error:
+            raise TracingUnavailable from error
+        try:
+            trace = trace_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            events = []
+        else:
+            events = parse_strace_execve(trace)
     finally:
         trace_path.unlink(missing_ok=True)
 

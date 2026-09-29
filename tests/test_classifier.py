@@ -107,6 +107,21 @@ def test_tool_cache_path_is_confirmed_tool_cache(tmp_path: Path) -> None:
     assert dependency.confidence == "confirmed"
 
 
+def test_tool_cache_marker_inside_an_unrelated_path_stays_unknown(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(
+            executable="python",
+            path="/tmp/opt/hostedtoolcache/Python/3.13/bin/python",
+        ),
+        RunnerInfo(provider="github-actions", os="Linux"),
+        tmp_path,
+        {},
+    )
+
+    assert dependency.origin == "unknown"
+    assert dependency.confidence == "unknown"
+
+
 def test_declared_workflow_path_is_confirmed_workflow_provisioned(tmp_path: Path) -> None:
     provisioned_root = tmp_path / "workflow-tools"
     tool = provisioned_root / "bin" / "cmake"

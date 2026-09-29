@@ -1,4 +1,5 @@
 from pathlib import Path
+from subprocess import CompletedProcess
 
 from runnerlens import observer
 from runnerlens.observer import parse_strace_execve
@@ -104,12 +105,88 @@ fork() = 43
 def test_observer_retains_root_event_when_strace_has_no_parseable_events(monkeypatch) -> None:
     monkeypatch.setattr(observer.platform, "system", lambda: "Linux")
     monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
-    monkeypatch.setattr(observer, "_observe_with_strace", lambda argv, cwd: ([], 0))
+    monkeypatch.setattr(observer, "_can_trace_process_tree", lambda: True)
+    monkeypatch.setattr(observer, "_observe_with_strace", lambda argv, cwd: ([], 7))
 
     result = observer.observe_command(["bash"])
 
     assert len(result.events) == 1
     assert result.events[0].path == "/usr/bin/bash"
+    assert result.events[0].observation == "subprocess-root-fallback"
+    assert result.exit_code == 7
+
+
+def test_observer_preserves_command_exit_when_trace_file_cannot_be_read(monkeypatch) -> None:
+    monkeypatch.setattr(observer.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
+    monkeypatch.setattr(observer, "_can_trace_process_tree", lambda: True)
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        return CompletedProcess(command, 7)
+
+    monkeypatch.setattr(observer.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("trace file unavailable")),
+    )
+
+    result = observer.observe_command(["build-command"])
+
+    assert len(calls) == 1
+    assert calls[0][0] == "strace"
+    assert calls[0][-2:] == ["--", "build-command"]
+    assert result.exit_code == 7
+    assert len(result.events) == 1
+    assert result.events[0].path == "/usr/bin/build-command"
+    assert result.events[0].observation == "subprocess-root-fallback"
+    assert not Path(calls[0][calls[0].index("-o") + 1]).exists()
+
+
+def test_observer_runs_command_without_strace_when_tracer_cannot_start(monkeypatch) -> None:
+    monkeypatch.setattr(observer.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
+    monkeypatch.setattr(observer, "_can_trace_process_tree", lambda: True)
+    calls: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[0] == "strace":
+            raise FileNotFoundError("strace is unavailable")
+        return CompletedProcess(command, 7)
+
+    monkeypatch.setattr(observer.subprocess, "run", fake_run)
+
+    result = observer.observe_command(["build-command"])
+
+    assert [call[0] for call in calls] == ["strace", "build-command"]
+    assert result.exit_code == 7
+    assert result.events[0].observation == "subprocess-root-fallback"
+
+
+def test_observer_falls_back_when_ptrace_preflight_fails(monkeypatch) -> None:
+    monkeypatch.setattr(observer.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(observer.shutil, "which", lambda executable, path=None: "/usr/bin/" + executable)
+    monkeypatch.setattr(observer, "_can_trace_process_tree", lambda: False)
+    calls: list[list[str]] = []
+
+    def run_root_command(argv, cwd, resolved_path):
+        calls.append(argv)
+        return [observer._root_event(argv[0], resolved_path, "subprocess-root")], 0
+
+    monkeypatch.setattr(observer, "_observe_root_command", run_root_command)
+    monkeypatch.setattr(
+        observer,
+        "_observe_with_strace",
+        lambda argv, cwd: (_ for _ in ()).throw(AssertionError("unavailable tracer must not run")),
+    )
+
+    result = observer.observe_command(["build-command"])
+
+    assert calls == [["build-command"]]
+    assert result.exit_code == 0
     assert result.events[0].observation == "subprocess-root-fallback"
 
 
