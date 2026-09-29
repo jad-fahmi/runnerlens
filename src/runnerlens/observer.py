@@ -162,10 +162,10 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
             continue
         path = bytes(match.group("path"), "utf-8").decode("unicode_escape")
         pid = int(match.group("pid")) if match.group("pid") else None
-        if observation == "strace-execveat" and not path.startswith("/"):
+        if not path.startswith("/"):
             executable = Path(path).name if path else "unknown-executable"
             path = None
-            observation = "strace-execveat-unresolved"
+            observation = f"{observation}-unresolved"
         else:
             executable = Path(path).name
         events.append(
