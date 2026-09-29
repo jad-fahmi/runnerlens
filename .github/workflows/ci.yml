@@ -17,6 +17,11 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install ".[dev]"
       - run: python -m pytest
+      - name: Verify successful execveat calls are observed
+        run: |
+          gcc -Wall -Wextra -Werror tests/fixtures/execveat_launcher.c -o execveat-launcher
+          runnerlens run --output execveat-receipt.json -- ./execveat-launcher
+          python -c "import json; receipt = json.load(open('execveat-receipt.json')); events = receipt['events']; assert receipt['exit_code'] == 0; assert any(event['executable'] == 'true' and event['path'] == '/usr/bin/true' and event['observation'] == 'strace-execveat' for event in events)"
 
   action-smoke:
     runs-on: ubuntu-24.04
