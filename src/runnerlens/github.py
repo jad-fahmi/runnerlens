@@ -130,8 +130,10 @@ def manifest_versions(
         if package_name in manifest.apt_packages and not _is_tool_cache_dependency(path, origin):
             return (manifest.apt_packages[package_name],)
     for candidate in _manifest_candidates(executable, normalized, aliases):
-        if _is_tool_cache_dependency(path, origin) and candidate in manifest.cached_tools:
-            return manifest.cached_tools[candidate]
+        if _is_tool_cache_dependency(path, origin):
+            if candidate in manifest.cached_tools:
+                return manifest.cached_tools[candidate]
+            continue
         if candidate in manifest.tools:
             return manifest.tools[candidate]
     return None
