@@ -237,7 +237,7 @@ def compare_runner_images(
             status = "added"
         elif target_versions is None:
             status = "removed"
-        elif baseline_versions == target_versions:
+        elif set(baseline_versions) == set(target_versions):
             status = "unchanged"
         else:
             status = "changed"
