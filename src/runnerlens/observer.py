@@ -160,7 +160,7 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
             observation = "strace-execveat"
         if not match:
             continue
-        path = bytes(match.group("path"), "utf-8").decode("unicode_escape")
+        path = _decode_strace_string(match.group("path"))
         pid = int(match.group("pid")) if match.group("pid") else None
         if not path.startswith("/"):
             executable = Path(path).name if path else "unknown-executable"
@@ -178,3 +178,58 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
             )
         )
     return events
+
+
+def _decode_strace_string(value: str) -> str:
+    """Decode strace's C-style escapes without corrupting UTF-8 path bytes."""
+    decoded = bytearray()
+    index = 0
+    simple_escapes = {
+        "a": 7,
+        "b": 8,
+        "f": 12,
+        "n": 10,
+        "r": 13,
+        "t": 9,
+        "v": 11,
+        "\\": 92,
+        '"': 34,
+    }
+    while index < len(value):
+        char = value[index]
+        if char != "\\":
+            decoded.extend(char.encode("utf-8"))
+            index += 1
+            continue
+
+        index += 1
+        if index >= len(value):
+            decoded.append(92)
+            break
+
+        escaped = value[index]
+        if escaped in "01234567":
+            end = index + 1
+            while end < min(index + 3, len(value)) and value[end] in "01234567":
+                end += 1
+            decoded.append(int(value[index:end], 8))
+            index = end
+        elif escaped == "x":
+            end = index + 1
+            while end < len(value) and end < index + 3 and value[end] in "0123456789abcdefABCDEF":
+                end += 1
+            if end == index + 1:
+                decoded.extend(b"\\x")
+                index += 1
+            else:
+                decoded.append(int(value[index + 1 : end], 16))
+                index = end
+        elif escaped in simple_escapes:
+            decoded.append(simple_escapes[escaped])
+            index += 1
+        else:
+            decoded.extend(b"\\")
+            decoded.extend(escaped.encode("utf-8"))
+            index += 1
+
+    return os.fsdecode(bytes(decoded))
