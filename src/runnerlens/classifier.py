@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from runnerlens.models import Dependency, ExecutionEvent, RunnerInfo
 
@@ -82,6 +82,8 @@ def classify_event(
         evidence.append("documented base-image path on GitHub-hosted runner")
     elif runner.provider == "local" and path:
         evidence.append("local execution cannot establish CI runner provenance")
+    elif event.path and path is None:
+        evidence.append("observed path is relative; child working directory is not established")
     elif path is None:
         evidence.append("executable path was not resolved")
 
@@ -96,6 +98,10 @@ def classify_event(
 
 def _normalize_path(path: str | None) -> str | None:
     if path is None:
+        return None
+    if PurePosixPath(path).is_absolute():
+        return PurePosixPath(path).as_posix()
+    if not PureWindowsPath(path).is_absolute():
         return None
     return Path(path).as_posix()
 

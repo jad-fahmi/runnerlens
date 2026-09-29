@@ -81,6 +81,20 @@ def test_local_system_path_stays_unknown(tmp_path: Path) -> None:
     assert dependency.confidence == "unknown"
 
 
+def test_relative_executable_path_stays_unresolved(tmp_path: Path) -> None:
+    dependency = classify_event(
+        ExecutionEvent(executable="build-tool", path="tools/build-tool"),
+        RunnerInfo(provider="github-actions", os="Linux", environment="github-hosted"),
+        tmp_path,
+        {},
+    )
+
+    assert dependency.path is None
+    assert dependency.origin == "unknown"
+    assert dependency.confidence == "unknown"
+    assert "child working directory is not established" in dependency.evidence[-1]
+
+
 def test_tool_cache_path_is_confirmed_tool_cache(tmp_path: Path) -> None:
     dependency = classify_event(
         ExecutionEvent(executable="python", path="/opt/hostedtoolcache/Python/3.13/bin/python"),
