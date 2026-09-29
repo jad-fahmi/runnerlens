@@ -33,7 +33,9 @@ observed executable path is `/usr/bin/go`.
 The `runner-image-metadata` CI job also captures a live receipt from
 `podman --version` on its own GitHub-hosted Ubuntu runner. It correlates that
 receipt with the exact image version reported to the workflow and uploads the
-JSON receipt as an artifact. This checks actual process observation, version
+JSON receipt as an artifact. It invokes `runnerlens impact` without an explicit
+target version and verifies that the inferred release matches the recorded
+runner image version. This checks actual process observation, version
 resolution, runner provenance, and image metadata together, separately from
 the labeled historical reconstruction below. A second live command runs a
 digest-pinned Alpine image with Podman in root-only mode. Process tracing
