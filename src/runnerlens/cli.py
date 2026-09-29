@@ -104,7 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
     impact.add_argument("--baseline-image", help="baseline Ubuntu image, defaults to the receipt image")
     impact.add_argument("--baseline-image-version", help="baseline GitHub runner image version")
     impact.add_argument("--target-image", help="target Ubuntu image, defaults to the receipt image")
-    impact.add_argument("--target-image-version", required=True, help="target GitHub runner image version")
+    impact.add_argument("--target-image-version", help="target GitHub runner image version; defaults to the receipt")
     impact.add_argument("--json", action="store_true", help="print JSON impact data")
 
     check = subcommands.add_parser("check", help="fail when a receipt adds ambient runner dependencies")
@@ -193,7 +193,12 @@ def image_impact_command(args: argparse.Namespace) -> int:
         image = args.target_image or receipt.runner.image
         if not image:
             raise ValueError("target image is required when the receipt has no runner image")
-        target_manifest = fetch_ubuntu_manifest(image, args.target_image_version)
+        target_image_version = args.target_image_version or receipt.runner.image_version
+        if not target_image_version:
+            raise ValueError(
+                "target image version is required when the receipt has no runner image version"
+            )
+        target_manifest = fetch_ubuntu_manifest(image, target_image_version)
         baseline_manifest = None
         if args.baseline_image_version:
             baseline_manifest = fetch_ubuntu_manifest(args.baseline_image or image, args.baseline_image_version)

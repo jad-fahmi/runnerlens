@@ -212,6 +212,73 @@ def test_impact_command_fetches_target_image_metadata(tmp_path: Path, capsys, mo
     assert "Metadata source: https://example.test/manifest" in captured.out
 
 
+def test_impact_command_defaults_to_the_receipt_image_version(tmp_path: Path, capsys, monkeypatch) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0",
+                "started_at": "2026-09-21T00:00:00+00:00",
+                "ended_at": "2026-09-21T00:00:01+00:00",
+                "exit_code": 0,
+                "runner": {
+                    "provider": "github-actions",
+                    "image": "ubuntu24",
+                    "image_version": "20260922.1",
+                },
+                "command": {"executable": "cmake", "arguments_recorded": False},
+                "dependencies": [],
+                "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    requested: list[tuple[str, str]] = []
+
+    def fake_fetch(image: str, version: str) -> GitHubImageManifest:
+        requested.append((image, version))
+        return GitHubImageManifest(
+            image=image,
+            release=f"{image}/{version}",
+            source_url="https://example.test/manifest",
+            tools={},
+        )
+
+    monkeypatch.setattr("runnerlens.cli.fetch_ubuntu_manifest", fake_fetch)
+
+    exit_code = main(["impact", str(receipt_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert requested == [("ubuntu24", "20260922.1")]
+    assert "Target release:  ubuntu24/20260922.1" in captured.out
+
+
+def test_impact_command_requires_image_version_when_receipt_has_none(tmp_path: Path, capsys) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0",
+                "started_at": "2026-09-21T00:00:00+00:00",
+                "ended_at": "2026-09-21T00:00:01+00:00",
+                "exit_code": 0,
+                "runner": {"provider": "github-actions", "image": "ubuntu24"},
+                "command": {"executable": "cmake", "arguments_recorded": False},
+                "dependencies": [],
+                "events": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["impact", str(receipt_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "receipt has no runner image version" in captured.err
+
+
 def test_check_command_fails_for_new_runner_dependency(tmp_path: Path, capsys) -> None:
     baseline_path = tmp_path / "baseline.json"
     target_path = tmp_path / "target.json"
