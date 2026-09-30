@@ -44,12 +44,16 @@ passed relative to directory descriptors or through `AT_EMPTY_PATH` are kept
 as unresolved events and mark coverage partial rather than guessed. Elsewhere,
 it records only the wrapped root command and labels that lower-coverage
 observation method in the receipt.
+When strace splits a syscall across unfinished and resumed lines, the parser
+pairs the lines by process and syscall and records the executable only when
+the resumed call reports success. Unpaired or unmatched lines remain visible
+as incomplete events, mark coverage partial, and are excluded from dependencies.
 Before tracing, RunnerLens probes tracer availability with `/bin/true`. A failed
 probe or a tracer launch error runs the build with root-only fallback evidence.
 If `strace` completes without any parseable execution events, or its trace file
-cannot be read, RunnerLens retains the root command with a
-`subprocess-root-fallback` observation label and the tracer's returned exit code.
-It does not rerun the build after the tracer has completed.
+cannot be read, RunnerLens preserves the tracer's exit code but does not infer
+that the root command executed. The receipt has unknown observation coverage and
+no observed dependencies. It does not rerun the build after the tracer completes.
 Ptrace changes setuid and setgid execution: by default, traced privileged
 programs run without their effective privileges ([strace manual](https://man7.org/linux/man-pages/man1/strace.1.html)).
 For commands that rely on such helpers, `runnerlens run --no-process-tree`
@@ -62,11 +66,15 @@ through Bash, that mode records only the Bash wrapper. It does not claim to
 identify commands invoked inside the script; use the CLI mode for direct
 command identity when possible.
 
-After classification, RunnerLens asks an observed absolute executable for its
-standard version output (`--version`, or `go version` for Go), and queries
-`dpkg-query` for the owning Debian package. Both operations are bounded by a
-short timeout. A value is omitted when either source does not return reliable
-evidence.
+After classification, RunnerLens requests version output only for recognized
+tool names with known version commands (`--version`, or `go version` for Go),
+and queries `dpkg-query` for the owning Debian package. Both operations are
+bounded by a short timeout. Unknown executable names are not run a second time,
+and a value is omitted when either source does not return reliable evidence.
+Metadata probes run from `/` and exclude common runtime-injection and package-
+database override variables, and use the C locale. This keeps repository-local
+configuration, workflow preload hooks, and runner language settings from
+changing the result.
 
 Resolution is limited to dependencies already classified as `runner-provided`
 or `tool-cache`. RunnerLens does not invoke repository-provided executables a

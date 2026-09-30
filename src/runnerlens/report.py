@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 from runnerlens.models import Receipt
-from runnerlens.impact import ImageImpact, ReceiptImpact, RunnerImageImpact, newly_observed_ambient_dependencies
+from runnerlens.impact import (
+    ImageImpact,
+    ReceiptImpact,
+    RunnerImageImpact,
+    newly_observed_ambient_dependencies,
+    observation_coverage,
+)
 
 
 def render_report(receipt: Receipt) -> str:
@@ -31,6 +37,15 @@ def render_report(receipt: Receipt) -> str:
     )
     if receipt.command.resolved_path:
         lines.append(f"  path        {receipt.command.resolved_path}")
+
+    coverage = observation_coverage(receipt)
+    lines.extend(["", f"Observation coverage: {coverage}"])
+    if coverage != "process-tree":
+        lines.extend(
+            [
+                "Warning: this receipt may omit dependencies because process-tree observation was incomplete.",
+            ]
+        )
 
     lines.extend(["", "Observed dependencies"])
 

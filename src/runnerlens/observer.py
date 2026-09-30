@@ -8,6 +8,7 @@ useful on unsupported development machines.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import re
@@ -17,6 +18,7 @@ import tempfile
 from dataclasses import dataclass
 from dataclasses import replace
 from pathlib import Path
+from typing import TextIO
 
 from runnerlens.models import ExecutionEvent, ObservedCommand, utc_now
 
@@ -41,6 +43,18 @@ _EXECVEAT_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?"
     r"execveat\([^,]+,\s*\"(?P<path>(?:[^\"\\]|\\.)*)\".*\)\s+=\s+0$"
 )
+_UNFINISHED_EXECVE_RE = re.compile(
+    r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?"
+    r"(?P<syscall>execve(?:at)?)\(.* <unfinished \.\.\.>$"
+)
+_RESUMED_EXECVE_RE = re.compile(
+    r"^(?:(?:\[pid\s+)?(?P<pid>\d+)\]?\s+)?"
+    r"<\.\.\. (?P<syscall>execve(?:at)?) resumed>.*?=\s+(?P<return>\S+)(?:\s|$)"
+)
+_EXECVE_PATH_RE = re.compile(r'^execve\("(?P<path>(?:[^"\\]|\\.)*)"')
+_EXECVEAT_PATH_RE = re.compile(
+    r'^execveat\([^,]+,\s*"(?P<path>(?:[^"\\]|\\.)*)"'
+)
 _PROCESS_CREATE_RE = re.compile(
     r"^(?:(?:\[pid\s+)?(?P<parent_pid>\d+)\]?\s+)?"
     r"(?:clone|clone3|fork|vfork)\(.*\)\s+=\s+(?P<child_pid>\d+)$"
@@ -53,31 +67,29 @@ def observe_command(
     cwd: Path | None = None,
     root_is_launcher: bool = False,
     trace_process_tree: bool = True,
+    stdout: TextIO | int | None = None,
 ) -> Observation:
     if not argv:
         raise ValueError("no command provided")
 
     started_at = utc_now()
     executable = argv[0]
-    resolved_path = shutil.which(executable, path=os.environ.get("PATH"))
+    resolved_path = _resolve_executable(executable, cwd)
     if not trace_process_tree:
-        events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+        events, exit_code = _observe_root_command(argv, cwd, resolved_path, stdout)
         events = [replace(event, observation="subprocess-root-only") for event in events]
     elif platform.system() == "Linux" and shutil.which("strace"):
         if not _can_trace_process_tree():
-            events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+            events, exit_code = _observe_root_command(argv, cwd, resolved_path, stdout)
             events = [replace(event, observation="subprocess-root-fallback") for event in events]
         else:
             try:
-                events, exit_code = _observe_with_strace(argv, cwd)
+                events, exit_code = _observe_with_strace(argv, cwd, stdout)
             except TracingUnavailable:
-                events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+                events, exit_code = _observe_root_command(argv, cwd, resolved_path, stdout)
                 events = [replace(event, observation="subprocess-root-fallback") for event in events]
-            else:
-                if not events:
-                    events = [_root_event(argv[0], resolved_path, "subprocess-root-fallback")]
     else:
-        events, exit_code = _observe_root_command(argv, cwd, resolved_path)
+        events, exit_code = _observe_root_command(argv, cwd, resolved_path, stdout)
 
     if root_is_launcher and events:
         events[0] = replace(events[0], role="launcher")
@@ -97,10 +109,30 @@ def observe_command(
     )
 
 
+def _resolve_executable(executable: str, cwd: Path | None) -> str | None:
+    working_directory = os.path.abspath(cwd or Path.cwd())
+    if os.path.dirname(executable):
+        candidate = executable
+        if not os.path.isabs(candidate):
+            candidate = os.path.join(working_directory, candidate)
+        return shutil.which(candidate, path=os.environ.get("PATH"))
+
+    search_path = os.environ.get("PATH")
+    if search_path is None:
+        search_path = os.defpath
+    absolute_search_path = os.pathsep.join(
+        entry
+        if os.path.isabs(entry)
+        else os.path.abspath(os.path.join(working_directory, entry or os.curdir))
+        for entry in search_path.split(os.pathsep)
+    )
+    return shutil.which(executable, path=absolute_search_path)
+
+
 def _observe_root_command(
-    argv: list[str], cwd: Path | None, resolved_path: str | None
+    argv: list[str], cwd: Path | None, resolved_path: str | None, stdout: TextIO | int | None
 ) -> tuple[list[ExecutionEvent], int]:
-    completed = subprocess.run(argv, cwd=cwd, check=False)
+    completed = subprocess.run(argv, cwd=cwd, stdout=stdout, check=False)
     return [_root_event(argv[0], resolved_path, "subprocess-root")], completed.returncode
 
 
@@ -127,7 +159,9 @@ def _can_trace_process_tree() -> bool:
     return completed.returncode == 0
 
 
-def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[ExecutionEvent], int]:
+def _observe_with_strace(
+    argv: list[str], cwd: Path | None, stdout: TextIO | int | None
+) -> tuple[list[ExecutionEvent], int]:
     """Run a command under strace and normalize its successful exec events."""
     with tempfile.NamedTemporaryFile(prefix="runnerlens-strace-", delete=False) as trace_file:
         trace_path = Path(trace_file.name)
@@ -149,6 +183,7 @@ def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[Execut
                     *argv,
                 ],
                 cwd=cwd,
+                stdout=stdout,
                 check=False,
             )
         except OSError as error:
@@ -160,13 +195,14 @@ def _observe_with_strace(argv: list[str], cwd: Path | None) -> tuple[list[Execut
         else:
             events = parse_strace_execve(trace)
     finally:
-        trace_path.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            trace_path.unlink(missing_ok=True)
 
     return events, completed.returncode
 
 
 def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
-    """Convert strace execution and process-creation output into events.
+    """Convert strace execution attempts and process-creation output into events.
 
     A parent PID is recorded only when strace reports a successful process
     creation syscall before that child executes. Root and incomplete lineage
@@ -174,6 +210,7 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
     """
     events: list[ExecutionEvent] = []
     parents: dict[int, int] = {}
+    unfinished: dict[tuple[int | None, str], str] = {}
     root_pid: int | None = None
     for line in trace.splitlines():
         root_pid_match = _ROOT_GETPID_RE.match(line)
@@ -189,6 +226,27 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
                 parents[int(creation_match.group("child_pid"))] = parent
             continue
 
+        unfinished_match = _UNFINISHED_EXECVE_RE.match(line)
+        if unfinished_match:
+            syscall = unfinished_match.group("syscall")
+            path_pattern = _EXECVEAT_PATH_RE if syscall == "execveat" else _EXECVE_PATH_RE
+            path_match = path_pattern.match(line[unfinished_match.start("syscall") :])
+            if path_match:
+                pid = int(unfinished_match.group("pid")) if unfinished_match.group("pid") else None
+                unfinished[(pid, syscall)] = path_match.group("path")
+            continue
+
+        resumed_match = _RESUMED_EXECVE_RE.match(line)
+        if resumed_match:
+            syscall = resumed_match.group("syscall")
+            pid = int(resumed_match.group("pid")) if resumed_match.group("pid") else None
+            path = unfinished.pop((pid, syscall), None)
+            if path is None:
+                events.append(_incomplete_exec_event(None, pid, parents, syscall))
+            elif resumed_match.group("return") == "0":
+                events.append(_exec_event(path, pid, parents, syscall))
+            continue
+
         match = _EXECVE_RE.match(line)
         observation = "strace-execve"
         if not match:
@@ -196,24 +254,54 @@ def parse_strace_execve(trace: str) -> list[ExecutionEvent]:
             observation = "strace-execveat"
         if not match:
             continue
-        path = _decode_strace_string(match.group("path"))
         pid = int(match.group("pid")) if match.group("pid") else None
-        if not path.startswith("/"):
-            executable = Path(path).name if path else "unknown-executable"
-            path = None
-            observation = f"{observation}-unresolved"
-        else:
-            executable = Path(path).name
-        events.append(
-            ExecutionEvent(
-                executable=executable,
-                path=path,
-                pid=pid,
-                parent_pid=parents.get(pid) if pid is not None else None,
-                observation=observation,
-            )
-        )
+        syscall = "execveat" if observation == "strace-execveat" else "execve"
+        events.append(_exec_event(match.group("path"), pid, parents, syscall))
+    for (pid, syscall), path in unfinished.items():
+        events.append(_incomplete_exec_event(path, pid, parents, syscall))
     return events
+
+
+def _exec_event(
+    raw_path: str,
+    pid: int | None,
+    parents: dict[int, int],
+    syscall: str,
+) -> ExecutionEvent:
+    path = _decode_strace_string(raw_path)
+    observation = "strace-execveat" if syscall == "execveat" else "strace-execve"
+    if not path.startswith("/"):
+        executable = Path(path).name if path else "unknown-executable"
+        path = None
+        observation = f"{observation}-unresolved"
+    else:
+        executable = Path(path).name
+    return ExecutionEvent(
+        executable=executable,
+        path=path,
+        pid=pid,
+        parent_pid=parents.get(pid) if pid is not None else None,
+        observation=observation,
+    )
+
+
+def _incomplete_exec_event(
+    raw_path: str | None,
+    pid: int | None,
+    parents: dict[int, int],
+    syscall: str,
+) -> ExecutionEvent:
+    decoded_path = _decode_strace_string(raw_path) if raw_path is not None else ""
+    path = decoded_path if decoded_path.startswith("/") else None
+    executable = Path(decoded_path).name if decoded_path else "unknown-executable"
+    observation = "strace-execveat-incomplete" if syscall == "execveat" else "strace-execve-incomplete"
+    return ExecutionEvent(
+        executable=executable,
+        path=path,
+        pid=pid,
+        parent_pid=parents.get(pid) if pid is not None else None,
+        observation=observation,
+    )
 
 
 def _decode_strace_string(value: str) -> str:

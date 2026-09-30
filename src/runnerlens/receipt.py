@@ -5,9 +5,10 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import tempfile
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from runnerlens.classifier import classify_events
@@ -35,7 +36,8 @@ def build_receipt(
     runner = detect_runner(data)
     reportable_events = [
         event for event in observation.events
-        if include_support_tools or _is_reportable_event(event)
+        if not event.observation.endswith("-incomplete")
+        and (include_support_tools or _is_reportable_event(event))
     ]
     dependencies = classify_events(reportable_events, runner, repository_root, data)
     dependencies = enrich_dependencies(dependencies)
@@ -52,8 +54,13 @@ def build_receipt(
 
 
 def write_receipt(receipt: Receipt, path: Path) -> None:
+    data = receipt.to_dict()
+    receipt_from_dict(data)
     path.parent.mkdir(parents=True, exist_ok=True)
-    destination = path.resolve() if path.is_symlink() else path
+    try:
+        destination = path.resolve() if path.is_symlink() else path
+    except (OSError, RuntimeError) as error:
+        raise ValueError(f"receipt output path cannot be resolved: {path}") from error
     temporary_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -65,7 +72,7 @@ def write_receipt(receipt: Receipt, path: Path) -> None:
             delete=False,
         ) as temporary_file:
             temporary_path = Path(temporary_file.name)
-            temporary_file.write(to_json(receipt.to_dict()))
+            temporary_file.write(to_json(data))
             temporary_file.flush()
             os.fsync(temporary_file.fileno())
         os.replace(temporary_path, destination)
@@ -89,8 +96,10 @@ def receipt_from_dict(data: dict[str, Any]) -> Receipt:
         raise ValueError(
             f"unsupported receipt schema version: {data.get('schema_version')!r}, expected {SCHEMA_VERSION!r}"
         )
-    for field in ("started_at", "ended_at"):
-        _require_string(data, field, "receipt")
+    started_at = _parse_timestamp(data, "started_at")
+    ended_at = _parse_timestamp(data, "ended_at")
+    if ended_at < started_at:
+        raise ValueError("receipt ended_at must not precede started_at")
     if type(data.get("exit_code")) is not int:
         raise ValueError("receipt exit_code must be an integer")
     runner = data.get("runner")
@@ -103,21 +112,27 @@ def receipt_from_dict(data: dict[str, Any]) -> Receipt:
     if not isinstance(command, dict):
         raise ValueError("receipt command must be an object")
     _require_string(command, "executable", "command")
-    _validate_optional_string(command, "resolved_path", "command")
+    _validate_optional_path(command, "resolved_path", "command")
     if "arguments_recorded" in command and type(command["arguments_recorded"]) is not bool:
         raise ValueError("command arguments_recorded must be a boolean")
     if not isinstance(data.get("dependencies"), list):
         raise ValueError("receipt dependencies must be an array")
     if not isinstance(data.get("events"), list):
         raise ValueError("receipt events must be an array")
+    dependency_identities: set[tuple[str, str | None]] = set()
     for dependency in data["dependencies"]:
         if not isinstance(dependency, dict):
             raise ValueError("receipt dependencies must contain objects")
         _require_string(dependency, "name", "dependency")
         if "path" not in dependency:
             raise ValueError("dependency path must be a string or null")
-        for field in ("path", "version", "package"):
+        _validate_optional_path(dependency, "path", "dependency")
+        for field in ("version", "package"):
             _validate_optional_string(dependency, field, "dependency")
+        identity = (dependency["name"], dependency["path"])
+        if identity in dependency_identities:
+            raise ValueError(f"duplicate dependency identity: {identity!r}")
+        dependency_identities.add(identity)
         origin = dependency.get("origin")
         if not isinstance(origin, str) or origin not in _RECEIPT_ORIGINS:
             raise ValueError(f"unsupported dependency origin: {origin!r}")
@@ -131,7 +146,7 @@ def receipt_from_dict(data: dict[str, Any]) -> Receipt:
         if not isinstance(event, dict):
             raise ValueError("receipt events must contain objects")
         _require_string(event, "executable", "event")
-        _validate_optional_string(event, "path", "event")
+        _validate_optional_path(event, "path", "event")
         if not isinstance(event.get("observation", "subprocess-root"), str):
             raise ValueError("event observation must be a string")
         role = event.get("role", "build-tool")
@@ -139,8 +154,8 @@ def receipt_from_dict(data: dict[str, Any]) -> Receipt:
             raise ValueError(f"unsupported event role: {role!r}")
         for field in ("pid", "parent_pid"):
             value = event.get(field)
-            if value is not None and type(value) is not int:
-                raise ValueError(f"event {field} must be an integer or null")
+            if value is not None and (type(value) is not int or value < 1):
+                raise ValueError(f"event {field} must be a positive integer or null")
     return Receipt(
         runner=RunnerInfo(**data["runner"]),
         command=ObservedCommand(**data["command"]),
@@ -158,10 +173,33 @@ def _require_string(data: dict[str, Any], field: str, context: str) -> None:
         raise ValueError(f"{context} {field} must be a non-empty string")
 
 
+def _parse_timestamp(data: dict[str, Any], field: str) -> datetime:
+    _require_string(data, field, "receipt")
+    value = data[field]
+    normalized = f"{value[:-1]}+00:00" if value.endswith("Z") else value
+    try:
+        timestamp = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError(f"receipt {field} must be an ISO 8601 timestamp") from error
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ValueError(f"receipt {field} must include a timezone")
+    return timestamp
+
+
 def _validate_optional_string(data: dict[str, Any], field: str, context: str) -> None:
     value = data.get(field)
     if value is not None and not isinstance(value, str):
         raise ValueError(f"{context} {field} must be a string or null")
+
+
+def _validate_optional_path(data: dict[str, Any], field: str, context: str) -> None:
+    value = data.get(field)
+    if value is not None and (
+        not isinstance(value, str)
+        or "\x00" in value
+        or not (PurePosixPath(value).is_absolute() or PureWindowsPath(value).is_absolute())
+    ):
+        raise ValueError(f"{context} {field} must be an absolute filesystem path or null")
 
 
 def to_json(data: dict[str, Any]) -> str:

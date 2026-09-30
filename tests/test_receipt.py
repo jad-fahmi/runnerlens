@@ -92,7 +92,9 @@ def test_receipt_from_dict_rejects_invalid_dependency_fields(
     [
         ("not-an-object", "receipt events must contain objects"),
         ({"executable": "cmake", "path": "/usr/bin/cmake", "role": "helper"}, "unsupported event role"),
-        ({"executable": "cmake", "path": "/usr/bin/cmake", "pid": True}, "event pid must be an integer or null"),
+        ({"executable": "cmake", "path": "/usr/bin/cmake", "pid": True}, "event pid must be a positive integer or null"),
+        ({"executable": "cmake", "path": "/usr/bin/cmake", "pid": 0}, "event pid must be a positive integer or null"),
+        ({"executable": "cmake", "path": "/usr/bin/cmake", "parent_pid": -1}, "event parent_pid must be a positive integer or null"),
     ],
 )
 def test_receipt_from_dict_rejects_invalid_event_fields(event: object, message: str) -> None:

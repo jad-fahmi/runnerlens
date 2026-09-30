@@ -48,6 +48,10 @@ RunnerLens wraps an existing build or test command and writes a receipt to `runn
 runnerlens run -- make
 ```
 
+Add `--json` to write the receipt as JSON on standard output. The wrapped
+command's standard output goes to standard error in that mode, so the receipt
+can be piped to a JSON tool without build output mixed in.
+
 For a command that relies on setuid or setgid helpers, process tracing can
 change its privilege behavior. Use `--no-process-tree` to run it without ptrace
 and record only the wrapped executable, with the lower coverage marked in the
@@ -110,7 +114,9 @@ runnerlens impact runnerlens-receipt.json
 ```
 
 When available, `runnerlens impact` uses the image version recorded in the
-receipt. Pass `--target-image-version` to inspect another image release.
+receipt when inspecting the same image. When selecting a different target
+image, pass `--target-image-version` explicitly because image versions are not
+assumed to match across image families.
 
 Image impact reports include observation coverage and warn when child-process
 dependencies may be missing.

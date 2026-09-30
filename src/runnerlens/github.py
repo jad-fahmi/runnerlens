@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 
 _VERSION_RE = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?)")
+_IMAGE_VERSION_RE = re.compile(r"\d+(?:\.\d+){1,2}")
 _IMAGE_RE = re.compile(r"^ubuntu-?(?P<major>\d{2})(?:\.04)?$")
 _COMPILER_EXECUTABLE_RE = re.compile(
     r"^(?P<name>cc|c\+\+|gcc|g\+\+|clang|clang\+\+)(?:-(?P<major>\d+)(?:\.\d+)*)?$"
@@ -35,6 +37,8 @@ def normalize_ubuntu_image(image: str) -> str:
 
 def release_tag(image: str, image_version: str) -> str:
     """Build a runner-images release tag from GitHub's image metadata."""
+    if not _IMAGE_VERSION_RE.fullmatch(image_version):
+        raise ValueError(f"unsupported GitHub runner image version: {image_version!r}")
     version_parts = image_version.split(".")
     if len(version_parts) == 3 and version_parts[-1].isdigit():
         image_version = ".".join(version_parts[:-1])
@@ -97,7 +101,7 @@ def parse_ubuntu_software_report(markdown: str) -> dict[str, tuple[str, ...]]:
         versions = tuple(match.group(1) for match in _VERSION_RE.finditer(text))
         key = _normalize_tool_name(name)
         if key:
-            tools[key] = versions
+            tools[key] = tuple(dict.fromkeys((*tools.get(key, ()), *versions)))
     return tools
 
 
@@ -128,9 +132,12 @@ def manifest_versions(
         "go": ("go",),
     }
     if package:
-        package_name = package.partition(":")[0].lower()
-        if package_name in manifest.apt_packages and not _is_tool_cache_dependency(path, origin):
-            return (manifest.apt_packages[package_name],)
+        package_name = package.lower()
+        package_names = (package_name, package_name.partition(":")[0])
+        if not _is_tool_cache_dependency(path, origin):
+            for candidate in package_names:
+                if candidate in manifest.apt_packages:
+                    return (manifest.apt_packages[candidate],)
     for candidate in _manifest_candidates(executable, normalized, aliases):
         if _is_tool_cache_dependency(path, origin):
             if candidate in manifest.cached_tools:
@@ -236,4 +243,12 @@ def _normalize_tool_name(name: str) -> str:
 
 
 def _is_tool_cache_dependency(path: str | None, origin: str | None) -> bool:
-    return origin == "tool-cache" or bool(path and "/hostedtoolcache/" in path.lower())
+    if origin == "tool-cache":
+        return True
+    if not path:
+        return False
+    normalized_path = PurePosixPath(path)
+    if not normalized_path.is_absolute() or ".." in normalized_path.parts:
+        return False
+    path_value = normalized_path.as_posix().lower()
+    return path_value.startswith(("/opt/hostedtoolcache/", "/hostedtoolcache/"))

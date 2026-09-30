@@ -80,7 +80,7 @@ def test_find_package_owner_parses_multiarch_package_name(tmp_path: Path, monkey
     monkeypatch.setattr(
         resolver.subprocess,
         "run",
-        lambda *args, **kwargs: CompletedProcess(args[0], 0, "libexample1:amd64: /usr/bin/tool\n"),
+        lambda *args, **kwargs: CompletedProcess(args[0], 0, f"libexample1:amd64: {executable}\n"),
     )
 
     assert resolver.find_package_owner(str(executable)) == "libexample1:amd64"
@@ -93,7 +93,7 @@ def test_find_package_owner_omits_ambiguous_matches(tmp_path: Path, monkeypatch)
         resolver.subprocess,
         "run",
         lambda *args, **kwargs: CompletedProcess(
-            args[0], 0, "tool-package: /usr/bin/tool\nalternative-package: /usr/bin/tool\n"
+            args[0], 0, f"tool-package: {executable}\nalternative-package: {executable}\n"
         ),
     )
 
@@ -107,11 +107,44 @@ def test_find_package_owner_omits_malformed_matches(tmp_path: Path, monkeypatch)
         resolver.subprocess,
         "run",
         lambda *args, **kwargs: CompletedProcess(
-            args[0], 0, "tool-package: /usr/bin/tool\nunparseable output\n"
+            args[0], 0, f"tool-package: {executable}\nunparseable output\n"
         ),
     )
 
     assert resolver.find_package_owner(str(executable)) is None
+
+
+@pytest.mark.parametrize(
+    ("path", "pattern"),
+    [
+        ("/usr/bin/tool*", r"/usr/bin/tool\*"),
+        ("/usr/bin/tool?", r"/usr/bin/tool\?"),
+        ("/usr/bin/tool[1]", r"/usr/bin/tool\[1]"),
+        (r"/usr/bin/tool\name", r"/usr/bin/tool\\name"),
+        ("/usr/bin/tool: name", "/usr/bin/tool: name"),
+    ],
+)
+def test_package_lookup_uses_literal_paths(path, pattern, monkeypatch) -> None:
+    monkeypatch.setattr(resolver, "_is_absolute_file", lambda path: True)
+
+    def fake_run(command, **kwargs):
+        assert command == ["dpkg-query", "--search", "--", pattern]
+        return CompletedProcess(command, 0, f"example:amd64: {path}\n")
+
+    monkeypatch.setattr(resolver.subprocess, "run", fake_run)
+
+    assert resolver.find_package_owner(path) == "example:amd64"
+
+
+def test_package_lookup_rejects_another_files_owner(monkeypatch) -> None:
+    monkeypatch.setattr(resolver, "_is_absolute_file", lambda path: True)
+    monkeypatch.setattr(
+        resolver.subprocess,
+        "run",
+        lambda *args, **kwargs: CompletedProcess(args[0], 0, "example: /usr/bin/other\n"),
+    )
+
+    assert resolver.find_package_owner("/usr/bin/tool") is None
 
 
 @pytest.mark.parametrize("probe", [resolver.detect_version, resolver.find_package_owner])

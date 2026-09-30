@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import Any
 
 from runnerlens.github import GitHubImageManifest, manifest_versions
@@ -150,9 +151,15 @@ def compare_receipts(baseline: Receipt, target: Receipt) -> ReceiptImpact:
 def observation_coverage(receipt: Receipt) -> str:
     """Classify receipt coverage from its recorded observation methods."""
     methods = {event.observation for event in receipt.events}
-    if methods & {"strace-execve-unresolved", "strace-execveat-unresolved"}:
+    strace_methods = {"strace-execve", "strace-execveat"}
+    unresolved_methods = {"strace-execve-unresolved", "strace-execveat-unresolved"}
+    if methods & unresolved_methods or any(method.endswith("-incomplete") for method in methods) or any(
+        event.observation in strace_methods
+        and (not event.path or not PurePosixPath(event.path).is_absolute())
+        for event in receipt.events
+    ):
         return "partial"
-    if methods and methods <= {"strace-execve", "strace-execveat"}:
+    if methods and methods <= strace_methods:
         return "process-tree"
     if methods and methods <= {
         "subprocess-root",
@@ -160,7 +167,7 @@ def observation_coverage(receipt: Receipt) -> str:
         "subprocess-root-only",
     }:
         return "root-only"
-    if "strace-execve" in methods:
+    if methods & strace_methods:
         return "mixed"
     return "unknown"
 
@@ -261,15 +268,22 @@ def compare_runner_images(
 
 
 def _by_identity(dependencies: list[Dependency]) -> dict[tuple[str, str | None], Dependency]:
-    """Index dependencies by executable name and path without hiding path switches."""
-    grouped: dict[tuple[str, str | None], list[Dependency]] = {}
+    """Index unique dependencies by executable name and path."""
+    indexed: dict[tuple[str, str | None], Dependency] = {}
     for dependency in dependencies:
-        grouped.setdefault((dependency.name, dependency.path), []).append(dependency)
-    return {identity: items[0] for identity, items in grouped.items()}
+        identity = (dependency.name, dependency.path)
+        if identity in indexed:
+            raise ValueError(f"duplicate dependency identity: {identity!r}")
+        indexed[identity] = dependency
+    return indexed
 
 
 def _ambient_dependencies(receipt: Receipt) -> list[Dependency]:
-    return [dependency for dependency in receipt.dependencies if dependency.origin in AMBIENT_ORIGINS]
+    return [
+        dependency
+        for dependency in _by_identity(receipt.dependencies).values()
+        if dependency.origin in AMBIENT_ORIGINS
+    ]
 
 
 def _fingerprint(dependency: Dependency) -> tuple[str | None, str | None, str | None, str, str]:
