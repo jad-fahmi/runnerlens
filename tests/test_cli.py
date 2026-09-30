@@ -2,6 +2,7 @@ import json
 import sys
 from pathlib import Path
 
+from runnerlens import __version__
 from runnerlens.cli import main
 from runnerlens.github import GitHubImageManifest
 
@@ -12,7 +13,7 @@ def test_version_command_prints_version(capsys) -> None:
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert captured.out.strip()
+    assert captured.out.strip() == __version__
 
 
 def test_run_command_supports_explicit_root_only_observation(tmp_path: Path, capsys) -> None:
